@@ -1,0 +1,93 @@
+<!-- templates/blog/blog_list.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+    <!-- Live Location Map -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Current Location</h2>
+        <div id="map" class="w-full h-96 rounded-lg shadow-md"></div>
+    </div>
+    
+    <!-- Blog Posts -->
+    <div class="mt-12">
+        <h2 class="text-2xl font-semibold mb-6">Journey Updates</h2>
+        
+        {% if blog_posts %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for post in blog_posts %}
+                    <a href="{{ post.get_absolute_url }}" class="blog-card bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-200 hover:shadow-lg hover:-translate-y-1">
+                        {% if post.first_image %}
+                            <div class="h-48 overflow-hidden">
+                                <img src="{{ BASE_URL }}{{ post.first_image.image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
+                            </div>
+                        {% else %}
+                            <div class="h-48 bg-gray-200 flex items-center justify-center">
+                                <i class="fas fa-image text-gray-400 text-4xl"></i>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="p-4">
+                            <p class="text-sm text-gray-500 mb-1">{{ post.timestamp|date:"F j, Y • g:i A" }}</p>
+                            <h3 class="text-xl font-semibold text-gray-800">{{ post.title }}</h3>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-white p-6 rounded-lg shadow text-center">
+                <p class="text-gray-500">No journey updates yet. Check back soon!</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Initialize the map
+    const map = L.map('map').setView([39.8283, -98.5795], 4); // Default to center of US
+    
+    // Add the OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    
+    // Create marker for the current location
+    let marker;
+    
+    // Function to update the map with the latest location
+    function updateLocation() {
+        fetch('{{ BASE_URL }}/tracker/latest/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('No location data available');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const lat = data.latitude;
+                const lng = data.longitude;
+                
+                // Update or create the marker
+                if (marker) {
+                    marker.setLatLng([lat, lng]);
+                } else {
+                    marker = L.marker([lat, lng]).addTo(map);
+                }
+                
+                // Center the map on the new position
+                map.setView([lat, lng], map.getZoom());
+                
+                // Add a tooltip with the timestamp
+                const timestamp = new Date(data.timestamp);
+                marker.bindTooltip(`Last updated: ${timestamp.toLocaleString()}`);
+            })
+            .catch(error => {
+                console.error('Error fetching location:', error);
+            });
+    }
+    
+    // Update the location immediately and then every minute
+    updateLocation();
+    setInterval(updateLocation, 60000); // 60000 ms = 1 minute
+</script>
+{% endblock %}

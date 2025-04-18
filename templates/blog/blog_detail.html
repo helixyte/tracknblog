@@ -1,0 +1,110 @@
+<!-- templates/blog/blog_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ blog_post.title }} | Going East{% endblock %}
+
+{% block content %}
+    <div class="max-w-4xl mx-auto">
+        <!-- Back to blog list link -->
+        <div class="mb-6">
+            <a href="{{ BASE_URL }}{% url 'blog_list' %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                <i class="fas fa-arrow-left mr-2"></i> Back to all updates
+            </a>
+        </div>
+        
+        <!-- Blog post header -->
+        <div class="mb-8">
+            <p class="text-gray-500 mb-2">{{ blog_post.timestamp|date:"F j, Y • g:i A" }}</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ blog_post.title }}</h1>
+        </div>
+        
+        <!-- Blog post content -->
+        <div class="prose max-w-none mb-10">
+            {{ blog_post.description|linebreaks }}
+        </div>
+        
+        <!-- Image slider -->
+        {% if blog_post.images.exists %}
+            <div class="mt-8 mb-12">
+                <div class="slider-container relative rounded-xl overflow-hidden shadow-lg" style="height: 500px;">
+                    <div class="slider h-full">
+                        {% for image in blog_post.images.all %}
+                            <div class="slide h-full">
+                                <img src="{{ BASE_URL }}{{ image.image.url }}" alt="Journey photo" class="w-full h-full object-cover">
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Slider controls -->
+                    <button class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md text-gray-800 slider-prev">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md text-gray-800 slider-next">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    
+                    <!-- Slider dots -->
+                    <div class="slider-nav">
+                        {% for image in blog_post.images.all %}
+                            <span class="slider-dot {% if forloop.first %}active{% endif %}" data-index="{{ forloop.counter0 }}"></span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Image slider functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const slider = document.querySelector('.slider');
+        const slides = document.querySelectorAll('.slide');
+        const dots = document.querySelectorAll('.slider-dot');
+        const prevBtn = document.querySelector('.slider-prev');
+        const nextBtn = document.querySelector('.slider-next');
+        
+        if (!slider || slides.length <= 1) return;
+        
+        let currentSlide = 0;
+        const slideCount = slides.length;
+        
+        // Function to update the slider position
+        function updateSlider() {
+            slider.style.transform = `translateX(-${currentSlide * 100}%)`;
+            
+            // Update active dot
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentSlide);
+            });
+        }
+        
+        // Event listeners for the next and previous buttons
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function() {
+                currentSlide = (currentSlide - 1 + slideCount) % slideCount;
+                updateSlider();
+            });
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function() {
+                currentSlide = (currentSlide + 1) % slideCount;
+                updateSlider();
+            });
+        }
+        
+        // Event listeners for the dots
+        dots.forEach((dot, index) => {
+            dot.addEventListener('click', function() {
+                currentSlide = index;
+                updateSlider();
+            });
+        });
+        
+        // Initialize the slider
+        updateSlider();
+    });
+</script>
+{% endblock %}

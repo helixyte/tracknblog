@@ -1,0 +1,89 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Going East{% endblock %}</title>
+    
+    <!-- Tailwind CSS for clean, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet.js for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Custom styles for the image slider */
+        .slider-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .slider {
+            display: flex;
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .slide {
+            min-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .slider-nav {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .slider-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+        }
+        
+        .slider-dot.active {
+            background-color: white;
+        }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4 py-6">
+            <h1 class="text-4xl font-bold text-center">Going East</h1>
+        </div>
+    </header>
+    
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-gray-800 text-white py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p>© {% now "Y" %} Cross-Country Bicycle Journey</p>
+        </div>
+    </footer>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
