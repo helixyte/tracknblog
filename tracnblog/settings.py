@@ -15,6 +15,9 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Base URL for templates and JavaScript
+#BASE_URL = 'blog'
+BASE_URL = ''
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -25,10 +28,12 @@ SECRET_KEY = 'django-insecure-ze7x**p61ovt@4@wh$6r#-(6u(y*+94@@n&odr_n@$o2#)!563
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', 'vista-grande.net', 'www.vista-grande.net']
+ALLOWED_HOSTS = ['localhost']
 
-# Configure the application to run in a subdirectory
-FORCE_SCRIPT_NAME = '/blog'
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/4.2/howto/static-files/
+STATIC_URL = '/static/'
+MEDIA_URL = '/media/'
 
 # Application definition
 
@@ -117,12 +122,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

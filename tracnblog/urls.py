@@ -23,7 +23,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('tracker/', include('tracker.urls')),
-    path('blog/', include('blog.urls')),
+    path('', include('blog.urls')),
 ]
 
 # In development, serve media and static files
