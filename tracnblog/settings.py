@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-ze7x**p61ovt@4@wh$6r#-(6u(y*+94@@n&odr_n@$o2#)!563
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', 'fogathmann.pythonanywhere.com']
+ALLOWED_HOSTS = ['localhost', 'goeast.vista-grande.net']
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -41,6 +41,12 @@ STATICFILES_DIRS = [
 ]
 
 MEDIA_URL = '/media/'
+
+# CSRF settings for custom domain
+CSRF_TRUSTED_ORIGINS = [
+    'https://goeast.vista-grande.net',
+    'http://goeast.vista-grande.net'  # Include this if you also accept HTTP
+]
 
 # Application definition
 
