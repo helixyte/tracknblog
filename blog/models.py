@@ -6,6 +6,8 @@ class BlogPost(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     
     class Meta:
         ordering = ['-timestamp']
@@ -21,6 +23,11 @@ class BlogPost(models.Model):
         """Return the first image for this blog post"""
         image = self.images.first()
         return image if image else None
+
+    @property
+    def has_location(self):
+        """Check if this blog post has location data"""
+        return self.latitude is not None and self.longitude is not None
 
 class BlogImage(models.Model):
     blog_post = models.ForeignKey(BlogPost, related_name='images', on_delete=models.CASCADE)

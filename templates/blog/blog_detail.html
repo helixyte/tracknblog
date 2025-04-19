@@ -18,6 +18,14 @@
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ blog_post.title }}</h1>
         </div>
         
+        <!-- Location Map (if blog post has location) -->
+        {% if blog_post.has_location %}
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-3">Location</h3>
+                <div id="blog-map" class="w-full h-64 rounded-lg shadow-md"></div>
+            </div>
+        {% endif %}
+        
         <!-- Blog post content -->
         <div class="prose max-w-none mb-10">
             {{ blog_post.description|linebreaks }}
@@ -52,6 +60,25 @@
                 </div>
             </div>
         {% endif %}
+        
+        <!-- Navigation between posts -->
+        <div class="mt-10 flex justify-between">
+            {% if prev_post %}
+                <a href="{{ prev_post.get_absolute_url }}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-arrow-left mr-2"></i> {{ prev_post.title }}
+                </a>
+            {% else %}
+                <div></div>
+            {% endif %}
+            
+            {% if next_post %}
+                <a href="{{ next_post.get_absolute_url }}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                    {{ next_post.title }} <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            {% else %}
+                <div></div>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}
 
@@ -106,5 +133,22 @@
         // Initialize the slider
         updateSlider();
     });
+    
+    // Initialize the map if blog post has location
+    {% if blog_post.has_location %}
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create map
+        const blogMap = L.map('blog-map').setView([{{ blog_post.latitude }}, {{ blog_post.longitude }}], 12);
+        
+        // Add the OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(blogMap);
+        
+        // Add a marker for this blog post location
+        const marker = L.marker([{{ blog_post.latitude }}, {{ blog_post.longitude }}]).addTo(blogMap);
+        marker.bindPopup('{{ blog_post.title }}').openPopup();
+    });
+    {% endif %}
 </script>
 {% endblock %}

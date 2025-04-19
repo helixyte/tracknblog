@@ -2,20 +2,20 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <!-- Live Location Map -->
+    <!-- Location Map -->
     <div class="mb-8">
-        <h2 class="text-2xl font-semibold mb-4">Current Location</h2>
+        <h2 class="text-2xl font-semibold mb-4">Journey Update Trail</h2>
         <div id="map" class="w-full h-96 rounded-lg shadow-md"></div>
     </div>
     
     <!-- Blog Posts -->
-    <div class="mt-12">
+    <div class="mt-12" id="journey-updates">
         <h2 class="text-2xl font-semibold mb-6">Journey Updates</h2>
         
         {% if blog_posts %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {% for post in blog_posts %}
-                    <a href="{{ post.get_absolute_url }}" class="blog-card bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-200 hover:shadow-lg hover:-translate-y-1">
+                    <a href="{{ post.get_absolute_url }}" class="blog-card bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-200 hover:shadow-lg hover:-translate-y-1" data-blog-id="{{ post.id }}">
                         {% if post.first_image %}
                             <div class="h-48 overflow-hidden">
                                 <img src="{{ BASE_URL }}{{ post.first_image.image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
@@ -29,6 +29,11 @@
                         <div class="p-4">
                             <p class="text-sm text-gray-500 mb-1">{{ post.timestamp|date:"F j, Y • g:i A" }}</p>
                             <h3 class="text-xl font-semibold text-gray-800">{{ post.title }}</h3>
+                            {% if post.has_location %}
+                                <p class="text-sm text-blue-500 mt-2">
+                                    <i class="fas fa-map-marker-alt mr-1"></i> View on map
+                                </p>
+                            {% endif %}
                         </div>
                     </a>
                 {% endfor %}
@@ -43,51 +48,198 @@
 
 {% block extra_scripts %}
 <script>
-    // Initialize the map
-    const map = L.map('map').setView([39.8283, -98.5795], 4); // Default to center of US
-    
-    // Add the OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    
-    // Create marker for the current location
-    let marker;
-    
-    // Function to update the map with the latest location
-    function updateLocation() {
-        fetch('{{ BASE_URL }}/tracker/latest/')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('No location data available');
-                }
-                return response.json();
-            })
-            .then(data => {
-                const lat = data.latitude;
-                const lng = data.longitude;
-                
-                // Update or create the marker
-                if (marker) {
-                    marker.setLatLng([lat, lng]);
-                } else {
-                    marker = L.marker([lat, lng]).addTo(map);
-                }
-                
-                // Center the map on the new position
-                map.setView([lat, lng], map.getZoom());
-                
-                // Add a tooltip with the timestamp
-                const timestamp = new Date(data.timestamp);
-                marker.bindTooltip(`Last updated: ${timestamp.toLocaleString()}`);
-            })
-            .catch(error => {
-                console.error('Error fetching location:', error);
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Debug info
+            console.log("Initializing map");
+            
+            // Initialize the map
+            const map = L.map('map').setView([39.8283, -98.5795], 4); // Default to center of US
+            
+            // Add the OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Create marker for the current location
+            let currentLocationMarker;
+            
+            // Dictionary to store blog post markers
+            const blogMarkers = {};
+            let activeMarker = null;
+            
+            // Custom icon for blog post markers
+            const blogIcon = L.icon({
+                iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-icon.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-shadow.png',
+                shadowSize: [41, 41]
             });
-    }
-    
-    // Update the location immediately and then every minute
-    updateLocation();
-    setInterval(updateLocation, 60000); // 60000 ms = 1 minute
+            
+            // Red icon for highlighted blog post markers
+            const highlightedBlogIcon = new L.Icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+            
+            // Function to update the map with the latest location
+            function updateLocation() {
+                console.log("Updating current location");
+                fetch('{{ BASE_URL }}/tracker/latest/')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('No location data available');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const lat = data.latitude;
+                        const lng = data.longitude;
+                        
+                        console.log(`Current location: ${lat}, ${lng}`);
+                        
+                        // Update or create the current location marker (as a circle)
+                        if (currentLocationMarker) {
+                            currentLocationMarker.setLatLng([lat, lng]);
+                        } else {
+                            // Create a circle marker for current location
+                            currentLocationMarker = L.circleMarker([lat, lng], {
+                                radius: 8,
+                                fillColor: "#3388ff",
+                                color: "#fff",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            }).addTo(map);
+                            
+                            // Add a tooltip with the timestamp
+                            const timestamp = new Date(data.timestamp);
+                            currentLocationMarker.bindTooltip(`Current Location: ${timestamp.toLocaleString()}`);
+                        }
+                        
+                        // Center the map on the new position if no other interaction has occurred
+                        map.setView([lat, lng], map.getZoom());
+                    })
+                    .catch(error => {
+                        console.error('Error fetching location:', error);
+                    });
+            }
+            
+            // Function to add blog post markers to the map
+            function addBlogPostMarkers() {
+                console.log("Adding blog post markers");
+                
+                // Blog posts data
+                const blogPostsData = [
+                    {% for post in blog_posts_with_location %}
+                        {
+                            id: {{ post.id }},
+                            lat: {{ post.latitude }},
+                            lng: {{ post.longitude }},
+                            title: "{{ post.title|escapejs }}"
+                        }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ];
+                
+                console.log(`Found ${blogPostsData.length} blog posts with location`);
+                
+                // Add markers for each blog post
+                blogPostsData.forEach(post => {
+                    console.log(`Adding marker for blog post ${post.id} at ${post.lat}, ${post.lng}`);
+                    
+                    const marker = L.marker([post.lat, post.lng], {icon: blogIcon}).addTo(map);
+                    marker.bindPopup(`<a href="{{ BASE_URL }}/post/${post.id}/" class="font-semibold">${post.title}</a>`);
+                    
+                    // Store the marker reference
+                    blogMarkers[post.id] = marker;
+                    
+                    // Add click event to the marker
+                    marker.on('click', function() {
+                        // Reset previous active marker if any
+                        if (activeMarker && activeMarker !== marker) {
+                            activeMarker.setIcon(blogIcon);
+                        }
+                        
+                        // Highlight the clicked marker
+                        marker.setIcon(highlightedBlogIcon);
+                        activeMarker = marker;
+                        
+                        // Highlight the corresponding blog post card
+                        highlightBlogPost(post.id);
+                    });
+                });
+            }
+            
+            // Function to highlight a blog post card and scroll to it
+            function highlightBlogPost(blogId) {
+                console.log(`Highlighting blog post ${blogId}`);
+                
+                // Remove highlight from all blog cards
+                document.querySelectorAll('.blog-card').forEach(card => {
+                    card.classList.remove('ring-4', 'ring-red-500');
+                });
+                
+                // Add highlight to the selected blog card
+                const selectedCard = document.querySelector(`.blog-card[data-blog-id="${blogId}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('ring-4', 'ring-red-500');
+                    
+                    // Scroll to the blog post
+                    document.getElementById('journey-updates').scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Then scroll the specific card into view with a slight delay
+                    setTimeout(() => {
+                        selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 500);
+                }
+            }
+            
+            // Add click events to blog post cards
+            document.querySelectorAll('.blog-card').forEach(card => {
+                const blogId = card.getAttribute('data-blog-id');
+                
+                card.addEventListener('mouseenter', function() {
+                    const marker = blogMarkers[blogId];
+                    if (marker) {
+                        console.log(`Hovering over blog post ${blogId}`);
+                        
+                        // Highlight the marker on hover
+                        marker.setIcon(highlightedBlogIcon);
+                        activeMarker = marker;
+                        
+                        // Open the popup
+                        marker.openPopup();
+                        
+                        // Pan to the marker
+                        map.panTo(marker.getLatLng());
+                    }
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    const marker = blogMarkers[blogId];
+                    if (marker && activeMarker !== marker) {
+                        // Reset the marker icon when mouse leaves
+                        marker.setIcon(blogIcon);
+                        marker.closePopup();
+                    }
+                });
+            });
+            
+            // Initialize the map with blog markers and current location
+            addBlogPostMarkers();
+            updateLocation();
+            setInterval(updateLocation, 60000); // 60000 ms = 1 minute
+            
+        } catch (error) {
+            console.error("Error initializing map:", error);
+            document.getElementById('map').innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded">Error loading map. Please check the console for details.</div>';
+        }
+    });
 </script>
 {% endblock %}

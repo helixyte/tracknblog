@@ -12,6 +12,20 @@ class BlogPostAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description')
     date_hierarchy = 'timestamp'
     inlines = [BlogImageInline]
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'description')
+        }),
+        ('Location', {
+            'fields': ('latitude', 'longitude'),
+            'description': 'Coordinates for this blog post'
+        })
+        )
+
+    def has_location(self, obj):
+        return obj.latitude is not None and obj.longitude is not None
+    has_location.boolean = True
+    has_location.short_description = 'Has Location'
 
 @admin.register(BlogImage)
 class BlogImageAdmin(admin.ModelAdmin):
