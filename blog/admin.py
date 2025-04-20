@@ -2,7 +2,6 @@
 from django.contrib import admin
 from django.urls import path
 from django.http import JsonResponse
-from django.utils.html import format_html
 from .models import BlogPost, BlogImage
 from tracker.models import LocationUpdate
 
@@ -22,20 +21,12 @@ class BlogPostAdmin(admin.ModelAdmin):
         }),
         ('Location', {
             'fields': ('latitude', 'longitude'),
-            'description': format_html('''
-                Click the button below to auto-fill with your latest location data.<br><br>
-                <button type="button" onclick="getLatestLocation()" 
-                        style="margin: 10px 0; padding: 8px 15px; font-size: 14px; 
-                               background-color: #0078d7; color: white; border: none; 
-                               border-radius: 4px; cursor: pointer;">
-                    Get Current Location
-                </button>
-            ''')
+            'description': 'Click "Get Current Location" button to auto-fill with your latest location data.'
         })
     )
     
     class Media:
-        js = ('blog/admin/location_button.js',)
+        js = ('blog/admin/js/admin_geolocation.js',)
     
     def has_location(self, obj):
         return obj.latitude is not None and obj.longitude is not None
