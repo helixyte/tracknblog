@@ -1,0 +1,27 @@
+/* static/admin/css/blogpost_admin.css */
+#get-location-button {
+    margin-top: 10px;
+    margin-bottom: 15px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    background-color: #0078d7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#get-location-button:hover {
+    background-color: #106ebe;
+}
+
+#get-location-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.field-latitude .readonly,
+.field-longitude .readonly {
+    color: #666;
+}

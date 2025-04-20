@@ -31,10 +31,8 @@ ALLOWED_HOSTS = ['localhost', 'cyclingeast.vista-grande.net']
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
+STATIC_URL = '/static/'
 # Also make sure STATICFILES_DIRS is defined if you have any static files outside apps
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
@@ -84,6 +82,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.static',  # This is important for static files
                 # Add a custom context processor for base URL
                 'tracnblog.context_processors.base_url_processor',
             ],
