@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.http import JsonResponse
-from .models import BlogPost, BlogImage
+from .models import BlogPost, BlogImage, Comment
 from tracker.models import LocationUpdate
 
 class BlogImageInline(admin.TabularInline):
@@ -69,3 +69,21 @@ admin.register(BlogImage)
 class BlogImageAdmin(admin.ModelAdmin):
     list_display = ('blog_post', 'order')
     list_filter = ('blog_post',)
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'blog_post', 'created_at', 'approved')
+    list_filter = ('approved', 'created_at', 'blog_post')
+    search_fields = ('name', 'email', 'content')
+    actions = ['approve_comments', 'disapprove_comments']
+    date_hierarchy = 'created_at'
+    
+    def approve_comments(self, request, queryset):
+        queryset.update(approved=True)
+        self.message_user(request, f"{queryset.count()} comments approved.")
+    approve_comments.short_description = "Approve selected comments"
+    
+    def disapprove_comments(self, request, queryset):
+        queryset.update(approved=False)
+        self.message_user(request, f"{queryset.count()} comments disapproved.")
+    disapprove_comments.short_description = "Disapprove selected comments"

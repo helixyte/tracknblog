@@ -1,7 +1,10 @@
 # blog/views.py
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView
-from .models import BlogPost
+from django.urls import reverse
+from django.http import JsonResponse
+from .models import BlogPost, Comment
+from .forms import CommentForm
 
 class BlogListView(ListView):
     model = BlogPost
@@ -37,7 +40,26 @@ class BlogDetailView(DetailView):
         context['next_post'] = BlogPost.objects.filter(
             timestamp__lt=blog_post.timestamp
         ).order_by('-timestamp').first()
+        
+        # Add comment form and comments to context
+        context['comment_form'] = CommentForm()
+        context['comments'] = blog_post.comments.filter(approved=True)
         return context
+
+def post_comment(request, pk):
+    """Handle comment submission"""
+    blog_post = get_object_or_404(BlogPost, pk=pk)
+    
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.blog_post = blog_post
+            comment.save()
+            return redirect('blog_detail', pk=blog_post.pk)
+    
+    # If form is not valid, return to blog post page with form errors
+    return redirect('blog_detail', pk=blog_post.pk)
 
 # API endpoint to get all blog posts with location data as JSON
 def blog_locations(request):

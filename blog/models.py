@@ -39,3 +39,17 @@ class BlogImage(models.Model):
     
     def __str__(self):
         return f"Image for {self.blog_post.title}"
+
+class Comment(models.Model):
+    blog_post = models.ForeignKey(BlogPost, related_name='comments', on_delete=models.CASCADE)
+    name = models.CharField(max_length=80)
+    # email = models.EmailField()
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved = models.BooleanField(default=True)  # You can make this False if you want to moderate comments
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Comment by {self.name} on {self.blog_post.title}"
