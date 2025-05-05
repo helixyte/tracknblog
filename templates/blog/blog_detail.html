@@ -161,27 +161,29 @@
                             </div>
                             
                             <!-- Replies to this comment -->
-                            {% if comment.replies.exists %}
+                            {% if comment.replies.all %}
                                 <div class="ml-10 mt-6 space-y-6">
                                     {% for reply in comment.replies.all %}
-                                        <div class="bg-gray-50 p-6 rounded-lg">
-                                            <div class="flex items-center justify-between mb-4">
-                                                <div class="flex items-center">
-                                                    <div class="flex-shrink-0">
-                                                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                                                            {{ reply.name|first|upper }}
+                                        {% if reply.approved %}
+                                            <div class="bg-gray-50 p-6 rounded-lg">
+                                                <div class="flex items-center justify-between mb-4">
+                                                    <div class="flex items-center">
+                                                        <div class="flex-shrink-0">
+                                                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                                {{ reply.name|first|upper }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="ml-3">
+                                                            <p class="text-sm font-medium text-gray-900">{{ reply.name }}</p>
+                                                            <p class="text-sm text-gray-500">{{ reply.created_at|date:"F j, Y • g:i A" }}</p>
                                                         </div>
                                                     </div>
-                                                    <div class="ml-3">
-                                                        <p class="text-sm font-medium text-gray-900">{{ reply.name }}</p>
-                                                        <p class="text-sm text-gray-500">{{ reply.created_at|date:"F j, Y • g:i A" }}</p>
-                                                    </div>
+                                                </div>
+                                                <div class="text-gray-700">
+                                                    {{ reply.content|linebreaks }}
                                                 </div>
                                             </div>
-                                            <div class="text-gray-700">
-                                                {{ reply.content|linebreaks }}
-                                            </div>
-                                        </div>
+                                        {% endif %}
                                     {% endfor %}
                                 </div>
                             {% endif %}

@@ -45,9 +45,9 @@ class Comment(models.Model):
     name = models.CharField(max_length=80)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    approved = models.BooleanField(default=False)
+    approved = models.BooleanField(default=True)
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
-    ip_address = models.GenericIPAddressField(null=True, blank=True)  # Store IP for rate limiting
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']

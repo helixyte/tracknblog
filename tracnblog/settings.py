@@ -142,6 +142,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Comment moderation settings
 AUTO_MODERATE_COMMENTS = False  # Set to True to require approval for all comments
+
 COMMENT_MODERATION_KEYWORDS = [
     'viagra', 'cialis', 'casino', 'pharmacy', 'loan', 'free money',
     'weight loss', 'xxx', 'porn', 'href=', 'http://', 'https://'
@@ -149,7 +150,19 @@ COMMENT_MODERATION_KEYWORDS = [
 
 # Comment rate limiting
 COMMENT_RATE_LIMIT_TIME = 300  # 5 minutes
-COMMENT_RATE_LIMIT_COUNT = 2   # Max 3 comments per 5 minutes
+COMMENT_RATE_LIMIT_COUNT = 3   # Max 3 comments per 5 minutes
+
+# Blocked IP addresses for comments
+COMMENT_BLOCKED_IPS = [
+    # Add IPs here to block them
+    # '192.168.1.1',
+]
+
+# Spam commenter names
+COMMENT_SPAM_NAMES = [
+    # Add known spam names here
+    # 'spammer123',
+]
 
 # Add the rate limiting middleware
 MIDDLEWARE += [

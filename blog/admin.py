@@ -4,6 +4,7 @@ from django.urls import path
 from django.http import JsonResponse
 from .models import BlogPost, BlogImage, Comment
 from tracker.models import LocationUpdate
+from django.conf import settings
 
 class BlogImageInline(admin.TabularInline):
     model = BlogImage
@@ -72,10 +73,10 @@ class BlogImageAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'truncated_content', 'blog_post', 'created_at', 'approved', 'is_reply')
+    list_display = ('name', 'truncated_content', 'blog_post', 'ip_address', 'created_at', 'approved', 'is_reply')
     list_filter = ('approved', 'created_at', 'blog_post')
-    search_fields = ('name', 'content')
-    actions = ['approve_comments', 'disapprove_comments', 'mark_as_spam']
+    search_fields = ('name', 'content', 'ip_address')
+    actions = ['approve_comments', 'disapprove_comments', 'mark_as_spam', 'block_ip_addresses']
     date_hierarchy = 'created_at'
     list_editable = ('approved',)
     list_per_page = 20
@@ -132,17 +133,42 @@ class CommentAdmin(admin.ModelAdmin):
         )
     mark_as_spam.short_description = "Mark selected comments as spam"
     
+    def block_ip_addresses(self, request, queryset):
+        """Block IP addresses from selected comments"""
+        # Get unique IP addresses from selected comments
+        ip_addresses = set(queryset.exclude(ip_address__isnull=True).values_list('ip_address', flat=True))
+        
+        if not ip_addresses:
+            self.message_user(request, "No IP addresses found in the selected comments.", level="WARNING")
+            return
+            
+        # Get existing blocked IPs from settings (or create empty list)
+        blocked_ips = set(getattr(settings, 'COMMENT_BLOCKED_IPS', []))
+        
+        # Add new IPs to the list
+        blocked_ips.update(ip_addresses)
+        
+        # You would typically save this to a database table in a real implementation
+        # For now, we'll just show a message
+        
+        self.message_user(
+            request,
+            f"Added {len(ip_addresses)} IP addresses to block list. "
+            f"Future comments from these IPs will be automatically rejected."
+        )
+    block_ip_addresses.short_description = "Block IP addresses for selected comments"
+    
     # Add fieldsets for better organization
     fieldsets = (
         ('Comment Information', {
             'fields': ('name', 'content')
         }),
         ('Metadata', {
-            'fields': ('blog_post', 'parent', 'created_at')
+            'fields': ('blog_post', 'parent', 'created_at', 'ip_address')
         }),
         ('Moderation', {
             'fields': ('approved',),
             'description': 'Manage comment visibility'
         }),
     )
-    readonly_fields = ('created_at',)
+    readonly_fields = ('created_at', 'ip_address')

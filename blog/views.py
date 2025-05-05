@@ -69,6 +69,14 @@ def post_comment(request, pk):
             comment = form.save(commit=False)
             comment.blog_post = blog_post
             
+            # Store the commenter's IP address
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0]
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+            comment.ip_address = ip
+            
             # Apply moderation if needed
             # Set approved to False if automatic moderation is enabled
             # or if specific keywords are present
