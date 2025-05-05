@@ -1,8 +1,11 @@
 # blog/views.py
+# blog/views.py (updated imports)
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView
 from django.urls import reverse
 from django.http import JsonResponse
+from django.contrib import messages
+from django.conf import settings
 from .models import BlogPost, Comment
 from .forms import CommentForm
 
@@ -47,19 +50,48 @@ class BlogDetailView(DetailView):
         context['comments'] = blog_post.comments.filter(approved=True, parent=None)
         return context
 
+# blog/views.py (updated post_comment function)
+
 def post_comment(request, pk):
-    """Handle comment submission"""
+    """Handle comment submission with honeypot and moderation"""
     blog_post = get_object_or_404(BlogPost, pk=pk)
     
     if request.method == 'POST':
         form = CommentForm(request.POST)
         if form.is_valid():
+            # Check honeypot field - if it's filled, it's probably a bot
+            if form.cleaned_data.get('website'):
+                # Log the bot attempt (optional)
+                # Just redirect as if the comment was successful to fool the bot
+                return redirect('blog_detail', pk=blog_post.pk)
+            
+            # Create comment but don't save to DB yet
             comment = form.save(commit=False)
             comment.blog_post = blog_post
-            comment.save()  # Let Django handle the parent assignment
+            
+            # Apply moderation if needed
+            # Set approved to False if automatic moderation is enabled
+            # or if specific keywords are present
+            auto_moderate = getattr(settings, 'AUTO_MODERATE_COMMENTS', False)
+            moderation_keywords = getattr(settings, 'COMMENT_MODERATION_KEYWORDS', 
+                                         ['viagra', 'cialis', 'casino', 'pharmacy'])
+            
+            content_lower = comment.content.lower()
+            if auto_moderate or any(keyword in content_lower for keyword in moderation_keywords):
+                comment.approved = False
+            
+            # Save the comment
+            comment.save()
+            
+            # Show a success message to the user
+            messages.success(request, 
+                            'Your comment has been submitted and is awaiting moderation.' 
+                            if not comment.approved else 
+                            'Your comment has been posted successfully.')
+            
             return redirect('blog_detail', pk=blog_post.pk)
     
-    # If form is not valid, return to blog post page with form errors
+    # If form is not valid or not POST, return to blog post page
     return redirect('blog_detail', pk=blog_post.pk)
 
 # API endpoint to get all blog posts with location data as JSON

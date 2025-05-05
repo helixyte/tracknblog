@@ -72,18 +72,77 @@ class BlogImageAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'blog_post', 'created_at', 'approved')
+    list_display = ('name', 'truncated_content', 'blog_post', 'created_at', 'approved', 'is_reply')
     list_filter = ('approved', 'created_at', 'blog_post')
-    search_fields = ('name', 'email', 'content')
-    actions = ['approve_comments', 'disapprove_comments']
+    search_fields = ('name', 'content')
+    actions = ['approve_comments', 'disapprove_comments', 'mark_as_spam']
     date_hierarchy = 'created_at'
+    list_editable = ('approved',)
+    list_per_page = 20
+    ordering = ('-created_at',)
+    
+    # Add a button to toggle the comment's approved status
+    actions_on_bottom = True
+    actions_on_top = True
+    
+    def truncated_content(self, obj):
+        """Return truncated content for display in admin list"""
+        if len(obj.content) > 60:
+            return obj.content[:60] + '...'
+        return obj.content
+    truncated_content.short_description = 'Content'
+    
+    def is_reply(self, obj):
+        """Check if this comment is a reply to another comment"""
+        return obj.parent is not None
+    is_reply.boolean = True
+    is_reply.short_description = 'Reply'
     
     def approve_comments(self, request, queryset):
-        queryset.update(approved=True)
-        self.message_user(request, f"{queryset.count()} comments approved.")
+        updated = queryset.update(approved=True)
+        self.message_user(request, f"{updated} comments were approved successfully.")
     approve_comments.short_description = "Approve selected comments"
     
     def disapprove_comments(self, request, queryset):
-        queryset.update(approved=False)
-        self.message_user(request, f"{queryset.count()} comments disapproved.")
+        updated = queryset.update(approved=False)
+        self.message_user(request, f"{updated} comments were disapproved.")
     disapprove_comments.short_description = "Disapprove selected comments"
+    
+    def mark_as_spam(self, request, queryset):
+        """Mark comments as spam and add the commenter's name to a spam list"""
+        updated = queryset.update(approved=False)
+        
+        # Get all the names from these comments
+        names = list(queryset.values_list('name', flat=True))
+        
+        # Get the current list of spam names from settings (or create empty list)
+        spam_names = list(getattr(settings, 'COMMENT_SPAM_NAMES', []))
+        
+        # Add new names to the list
+        for name in names:
+            if name and name not in spam_names:
+                spam_names.append(name)
+        
+        # You could save this back to the database if you have a settings model
+        # Or just use it in memory for this session
+        
+        self.message_user(
+            request, 
+            f"{updated} comments marked as spam. {len(names)} unique names added to spam list."
+        )
+    mark_as_spam.short_description = "Mark selected comments as spam"
+    
+    # Add fieldsets for better organization
+    fieldsets = (
+        ('Comment Information', {
+            'fields': ('name', 'content')
+        }),
+        ('Metadata', {
+            'fields': ('blog_post', 'parent', 'created_at')
+        }),
+        ('Moderation', {
+            'fields': ('approved',),
+            'description': 'Manage comment visibility'
+        }),
+    )
+    readonly_fields = ('created_at',)

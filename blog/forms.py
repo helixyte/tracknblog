@@ -9,6 +9,16 @@ class CommentForm(forms.ModelForm):
         required=False
     )
     
+    # Honeypot field - bots will fill this out, but humans shouldn't
+    website = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'style': 'display:none;',  # Hide with CSS
+            'tabindex': '-1',          # Remove from tab order
+            'autocomplete': 'off'      # Disable autocomplete
+        })
+    )
+    
     class Meta:
         model = Comment
         fields = ['name', 'content', 'parent']
