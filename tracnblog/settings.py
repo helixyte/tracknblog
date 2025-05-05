@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-ze7x**p61ovt@4@wh$6r#-(6u(y*+94@@n&odr_n@$o2#)!563
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', 'cyclingeast.vista-grande.net']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'cyclingeast.vista-grande.net']
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -139,3 +139,45 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Comment moderation settings
+AUTO_MODERATE_COMMENTS = False  # Set to True to require approval for all comments
+
+COMMENT_MODERATION_KEYWORDS = [
+    'viagra', 'cialis', 'casino', 'pharmacy', 'loan', 'free money',
+    'weight loss', 'xxx', 'porn', 'href=', 'http://', 'https://'
+]
+
+# Comment rate limiting
+COMMENT_RATE_LIMIT_TIME = 300  # 5 minutes
+COMMENT_RATE_LIMIT_COUNT = 3   # Max 3 comments per 5 minutes
+
+# Blocked IP addresses for comments
+COMMENT_BLOCKED_IPS = [
+    # Add IPs here to block them
+    # '192.168.1.1',
+]
+
+# Spam commenter names
+COMMENT_SPAM_NAMES = [
+    # Add known spam names here
+    # 'spammer123',
+]
+
+# Add the rate limiting middleware
+MIDDLEWARE += [
+    'blog.middleware.CommentRateLimitMiddleware',
+]
+
+# Make sure django messages framework is enabled
+if 'django.contrib.messages' not in INSTALLED_APPS:
+    INSTALLED_APPS.append('django.contrib.messages')
+
+if 'django.contrib.messages.middleware.MessageMiddleware' not in MIDDLEWARE:
+    # Find the index of SessionMiddleware
+    session_middleware_index = MIDDLEWARE.index('django.contrib.sessions.middleware.SessionMiddleware')
+    # Insert MessageMiddleware after SessionMiddleware
+    MIDDLEWARE.insert(session_middleware_index + 1, 'django.contrib.messages.middleware.MessageMiddleware')
+
+# Configure message storage
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
