@@ -43,7 +43,8 @@ class BlogDetailView(DetailView):
         
         # Add comment form and comments to context
         context['comment_form'] = CommentForm()
-        context['comments'] = blog_post.comments.filter(approved=True)
+        # Only get top-level comments (no parent)
+        context['comments'] = blog_post.comments.filter(approved=True, parent=None)
         return context
 
 def post_comment(request, pk):
@@ -55,7 +56,7 @@ def post_comment(request, pk):
         if form.is_valid():
             comment = form.save(commit=False)
             comment.blog_post = blog_post
-            comment.save()
+            comment.save()  # Let Django handle the parent assignment
             return redirect('blog_detail', pk=blog_post.pk)
     
     # If form is not valid, return to blog post page with form errors

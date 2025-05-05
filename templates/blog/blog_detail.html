@@ -66,9 +66,9 @@
             <h2 class="text-2xl font-bold text-gray-900 mb-6">Comments</h2>
             
             <!-- Comment Form -->
-            <div class="mb-10">
+            <div class="mb-10" id="comment-form-container">
                 <h3 class="text-lg font-semibold mb-4">Leave a Comment</h3>
-                <form method="post" action="{% url 'post_comment' pk=blog_post.pk %}" class="space-y-4">
+                <form method="post" action="{% url 'post_comment' pk=blog_post.pk %}" class="space-y-4" id="comment-form">
                     {% csrf_token %}
                     
                     {% if comment_form.errors %}
@@ -109,9 +109,14 @@
                         {{ comment_form.content }}
                     </div>
                     
+                    {{ comment_form.parent }}
+                    
                     <div>
                         <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             Post Comment
+                        </button>
+                        <button type="button" id="cancel-reply" class="ml-2 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 hidden">
+                            Cancel Reply
                         </button>
                     </div>
                 </form>
@@ -121,23 +126,54 @@
             {% if comments %}
                 <div class="space-y-8">
                     {% for comment in comments %}
-                        <div class="bg-gray-50 p-6 rounded-lg">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0">
-                                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                                            {{ comment.name|first|upper }}
+                        <div class="comment" id="comment-{{ comment.id }}">
+                            <div class="bg-gray-50 p-6 rounded-lg">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                {{ comment.name|first|upper }}
+                                            </div>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900">{{ comment.name }}</p>
+                                            <p class="text-sm text-gray-500">{{ comment.created_at|date:"F j, Y • g:i A" }}</p>
                                         </div>
                                     </div>
-                                    <div class="ml-3">
-                                        <p class="text-sm font-medium text-gray-900">{{ comment.name }}</p>
-                                        <p class="text-sm text-gray-500">{{ comment.created_at|date:"F j, Y • g:i A" }}</p>
-                                    </div>
+                                    <button class="reply-button text-sm text-blue-600 hover:text-blue-800" data-comment-id="{{ comment.id }}" data-comment-author="{{ comment.name }}">
+                                        Reply
+                                    </button>
+                                </div>
+                                <div class="text-gray-700">
+                                    {{ comment.content|linebreaks }}
                                 </div>
                             </div>
-                            <div class="text-gray-700">
-                                {{ comment.content|linebreaks }}
-                            </div>
+                            
+                            <!-- Replies to this comment -->
+                            {% if comment.replies.exists %}
+                                <div class="ml-10 mt-6 space-y-6">
+                                    {% for reply in comment.replies.all %}
+                                        <div class="bg-gray-50 p-6 rounded-lg">
+                                            <div class="flex items-center justify-between mb-4">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0">
+                                                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                                                            {{ reply.name|first|upper }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="ml-3">
+                                                        <p class="text-sm font-medium text-gray-900">{{ reply.name }}</p>
+                                                        <p class="text-sm text-gray-500">{{ reply.created_at|date:"F j, Y • g:i A" }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-gray-700">
+                                                {{ reply.content|linebreaks }}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -217,6 +253,54 @@
         
         // Initialize the slider
         updateSlider();
+    });
+    
+    // Comment reply functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const commentForm = document.getElementById('comment-form');
+        const commentFormContainer = document.getElementById('comment-form-container');
+        const parentField = document.querySelector('input[name="parent"]');
+        const cancelReplyButton = document.getElementById('cancel-reply');
+        const commentHeading = commentFormContainer.querySelector('h3');
+        const originalFormLocation = commentFormContainer.parentNode;
+        const originalHeadingText = commentHeading.textContent;
+        
+        // Handle reply button clicks
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('reply-button')) {
+                const commentId = e.target.dataset.commentId;
+                const commentAuthor = e.target.dataset.commentAuthor;
+                const commentDiv = document.getElementById(`comment-${commentId}`);
+                
+                // Set the parent ID
+                parentField.value = commentId;
+                
+                // Update the heading to show "Replying to..."
+                commentHeading.textContent = `Replying to ${commentAuthor}`;
+                
+                // Move the form after the comment
+                commentDiv.appendChild(commentFormContainer);
+                
+                // Show cancel button
+                cancelReplyButton.classList.remove('hidden');
+                
+                // Scroll to the form
+                commentFormContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+        
+        // Handle cancel reply
+        cancelReplyButton.addEventListener('click', function() {
+            // Reset the form
+            parentField.value = '';
+            commentHeading.textContent = originalHeadingText;
+            
+            // Move the form back to its original location
+            originalFormLocation.insertBefore(commentFormContainer, originalFormLocation.childNodes[0]);
+            
+            // Hide cancel button
+            cancelReplyButton.classList.add('hidden');
+        });
     });
     
     // Initialize the map if blog post has location
