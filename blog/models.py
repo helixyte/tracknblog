@@ -50,7 +50,7 @@ class Comment(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['created_at']
     
     def __str__(self):
         return f"Comment by {self.name} on {self.blog_post.title}"
