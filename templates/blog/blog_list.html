@@ -1,48 +1,89 @@
-<!-- templates/blog/blog_list.html -->
+<!-- templates/blog/blog_list.html (updated) -->
 {% extends 'base.html' %}
 
+{% block title %}{{ journey.title }} | Cycling Adventures{% endblock %}
+
 {% block content %}
-    <!-- Location Map -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-semibold mb-4">Journey Update Trail</h2>
-        <div id="map" class="w-full h-96 rounded-lg shadow-md"></div>
-    </div>
-    
-    <!-- Blog Posts -->
-    <div class="mt-12" id="journey-updates">
-        <h2 class="text-2xl font-semibold mb-6">Journey Updates</h2>
+    <div class="max-w-6xl mx-auto">
+        <!-- Back to journeys list -->
+        <div class="mb-6">
+            <a href="{{ BASE_URL }}{% url 'journey_list' %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                <i class="fas fa-arrow-left mr-2"></i> Back to all journeys
+            </a>
+        </div>
         
-        {% if blog_posts %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for post in blog_posts %}
-                    <a href="{{ post.get_absolute_url }}" class="blog-card bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-200 hover:shadow-lg hover:-translate-y-1" data-blog-id="{{ post.id }}">
-                        {% if post.first_image %}
-                            <div class="h-48 overflow-hidden">
-                                <img src="{{ BASE_URL }}{{ post.first_image.image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
-                            </div>
-                        {% else %}
-                            <div class="h-48 bg-gray-200 flex items-center justify-center">
-                                <i class="fas fa-image text-gray-400 text-4xl"></i>
-                            </div>
-                        {% endif %}
-                        
-                        <div class="p-4">
-                            <p class="text-sm text-gray-500 mb-1">{{ post.timestamp|date:"F j, Y • g:i A" }}</p>
-                            <h3 class="text-xl font-semibold text-gray-800">{{ post.title }}</h3>
-                            {% if post.has_location %}
-                                <p class="text-sm text-blue-500 mt-2">
-                                    <i class="fas fa-map-marker-alt mr-1"></i> View on map
-                                </p>
+        <!-- Journey header -->
+        <div class="mb-10 bg-white rounded-xl shadow-md overflow-hidden">
+            {% if journey.cover_image %}
+                <div class="h-64 overflow-hidden">
+                    <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="w-full h-full object-cover">
+                </div>
+            {% endif %}
+            
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ journey.title }}</h1>
+                    {% if journey.is_active %}
+                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Active</span>
+                    {% endif %}
+                </div>
+                
+                <p class="text-gray-500 mb-4">
+                    {% if journey.end_date %}
+                        {{ journey.start_date|date:"F j, Y" }} - {{ journey.end_date|date:"F j, Y" }}
+                    {% else %}
+                        Started {{ journey.start_date|date:"F j, Y" }}
+                    {% endif %}
+                </p>
+                
+                <div class="prose max-w-none mb-4">
+                    <p>{{ journey.description }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Location Map -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Journey Trail</h2>
+            <div id="map" class="w-full h-96 rounded-lg shadow-md"></div>
+        </div>
+        
+        <!-- Blog Posts -->
+        <div class="mt-12" id="journey-updates">
+            <h2 class="text-2xl font-semibold mb-6">Journey Updates</h2>
+            
+            {% if blog_posts %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for post in blog_posts %}
+                        <a href="{{ post.get_absolute_url }}" class="blog-card bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-200 hover:shadow-lg hover:-translate-y-1" data-blog-id="{{ post.id }}">
+                            {% if post.first_image %}
+                                <div class="h-48 overflow-hidden">
+                                    <img src="{{ BASE_URL }}{{ post.first_image.image.url }}" alt="{{ post.title }}" class="w-full h-full object-cover">
+                                </div>
+                            {% else %}
+                                <div class="h-48 bg-gray-200 flex items-center justify-center">
+                                    <i class="fas fa-image text-gray-400 text-4xl"></i>
+                                </div>
                             {% endif %}
-                        </div>
-                    </a>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="bg-white p-6 rounded-lg shadow text-center">
-                <p class="text-gray-500">No journey updates yet. Check back soon!</p>
-            </div>
-        {% endif %}
+                            
+                            <div class="p-4">
+                                <p class="text-sm text-gray-500 mb-1">{{ post.timestamp|date:"F j, Y • g:i A" }}</p>
+                                <h3 class="text-xl font-semibold text-gray-800">{{ post.title }}</h3>
+                                {% if post.has_location %}
+                                    <p class="text-sm text-blue-500 mt-2">
+                                        <i class="fas fa-map-marker-alt mr-1"></i> View on map
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="bg-white p-6 rounded-lg shadow text-center">
+                    <p class="text-gray-500">No journey updates yet. Check back soon!</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}
 
@@ -91,7 +132,7 @@
             // Function to update the map with the latest location
             function updateLocation() {
                 console.log("Updating current location");
-                fetch('{{ BASE_URL }}/tracker/latest/')
+                fetch('{{ BASE_URL }}{% url "journey_get_latest_location" journey_slug=journey.slug %}')
                     .then(response => {
                         if (!response.ok) {
                             throw new Error('No location data available');
@@ -154,7 +195,7 @@
                     console.log(`Adding marker for blog post ${post.id} at ${post.lat}, ${post.lng}`);
                     
                     const marker = L.marker([post.lat, post.lng], {icon: blogIcon}).addTo(map);
-                    marker.bindPopup(`<a href="{{ BASE_URL }}/post/${post.id}/" class="font-semibold">${post.title}</a>`);
+                    marker.bindPopup(`<a href="{{ BASE_URL }}{% url 'journey_detail' slug=journey.slug %}/${post.id}/" class="font-semibold">${post.title}</a>`);
                     
                     // Store the marker reference
                     blogMarkers[post.id] = marker;
@@ -174,6 +215,28 @@
                         highlightBlogPost(post.id);
                     });
                 });
+
+                // Draw the journey path if multiple points exist
+                if (blogPostsData.length > 1) {
+                    // Sort by ID (assuming newer posts have higher IDs)
+                    blogPostsData.sort((a, b) => a.id - b.id);
+                    
+                    // Create an array of lat/lng points for the path
+                    const pathPoints = blogPostsData.map(post => [post.lat, post.lng]);
+                    
+                    // Create a polyline for the journey
+                    const journeyPath = L.polyline(pathPoints, {
+                        color: '#3388ff',
+                        weight: 3,
+                        opacity: 0.7,
+                        dashArray: '5, 10'
+                    }).addTo(map);
+                    
+                    // Fit the map to show all the points
+                    if (pathPoints.length > 0) {
+                        map.fitBounds(pathPoints);
+                    }
+                }
             }
             
             // Function to highlight a blog post card and scroll to it

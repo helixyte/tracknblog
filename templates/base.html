@@ -1,10 +1,10 @@
-<!-- templates/base.html -->
+<!-- templates/base.html (updated) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Cycling East{% endblock %}</title>
+    <title>{% block title %}Cycling Adventures{% endblock %}</title>
     
     <!-- Tailwind CSS for clean, modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -84,6 +84,14 @@
             border: 3px solid #ef4444;
             transform: translateY(-5px);
         }
+        
+        /* Line clamp for truncating text */
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
     
     {% block extra_head %}{% endblock %}
@@ -91,7 +99,43 @@
 <body class="bg-gray-50 min-h-screen">
     <header class="bg-blue-600 text-white shadow-md">
         <div class="container mx-auto px-4 py-6">
-            <h1 class="text-4xl font-bold text-center">Cycling East</h1>
+            <div class="flex justify-between items-center">
+                <a href="{{ BASE_URL }}{% url 'journey_list' %}" class="text-3xl font-bold">Cycling Adventures</a>
+                <nav class="hidden md:block">
+                    <ul class="flex space-x-6">
+                        <li>
+                            <a href="{{ BASE_URL }}{% url 'journey_list' %}" class="hover:text-blue-200 transition-colors">
+                                <i class="fas fa-compass mr-2"></i>All Journeys
+                            </a>
+                        </li>
+                        {% if active_journey %}
+                        <li>
+                            <a href="{{ BASE_URL }}{% url 'journey_detail' slug=active_journey.slug %}" class="hover:text-blue-200 transition-colors">
+                                <i class="fas fa-map-marker-alt mr-2"></i>Current Journey
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <!-- Mobile menu button -->
+                <button class="md:hidden text-2xl" id="mobile-menu-button">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <!-- Mobile menu -->
+            <div class="md:hidden hidden mt-4" id="mobile-menu">
+                <nav class="flex flex-col space-y-3 pb-3">
+                    <a href="{{ BASE_URL }}{% url 'journey_list' %}" class="block py-2 px-4 hover:bg-blue-700 rounded">
+                        <i class="fas fa-compass mr-2"></i>All Journeys
+                    </a>
+                    {% if active_journey %}
+                    <a href="{{ BASE_URL }}{% url 'journey_detail' slug=active_journey.slug %}" class="block py-2 px-4 hover:bg-blue-700 rounded">
+                        <i class="fas fa-map-marker-alt mr-2"></i>Current Journey
+                    </a>
+                    {% endif %}
+                </nav>
+            </div>
         </div>
     </header>
     
@@ -99,11 +143,25 @@
         {% block content %}{% endblock %}
     </main>
     
-    <footer class="bg-gray-800 text-white py-6">
+    <footer class="bg-gray-800 text-white py-6 mt-12">
         <div class="container mx-auto px-4 text-center">
-            <p>© {% now "Y" %} Cycling East</p>
+            <p>© {% now "Y" %} Cycling Adventures</p>
         </div>
     </footer>
+    
+    <script>
+    // Mobile menu toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        
+        if (mobileMenuButton && mobileMenu) {
+            mobileMenuButton.addEventListener('click', function() {
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+    });
+    </script>
     
     {% block extra_scripts %}{% endblock %}
 </body>

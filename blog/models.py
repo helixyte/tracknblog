@@ -1,8 +1,50 @@
-# blog/models.py
+# blog/models.py (updated with Journey model)
 from django.db import models
 from django.urls import reverse
+from django.utils.text import slugify
+
+class Journey(models.Model):
+    """
+    Represents a complete bicycle journey/trip.
+    Each journey can have multiple blog posts and location updates.
+    """
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+    description = models.TextField()
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    cover_image = models.ImageField(upload_to='journey_covers/', null=True, blank=True)
+    is_active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-start_date']
+        verbose_name_plural = "Journeys"
+    
+    def __str__(self):
+        return self.title
+    
+    def get_absolute_url(self):
+        return reverse('journey_detail', args=[str(self.slug)])
+    
+    def save(self, *args, **kwargs):
+        # Auto-generate slug if it doesn't exist
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
+    
+    @property
+    def latest_post(self):
+        """Return the latest blog post for this journey"""
+        return self.posts.first()
+    
+    @property
+    def latest_location(self):
+        """Return the latest location update for this journey"""
+        return self.locations.first()
 
 class BlogPost(models.Model):
+    journey = models.ForeignKey(Journey, related_name='posts', on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -16,7 +58,7 @@ class BlogPost(models.Model):
         return self.title
     
     def get_absolute_url(self):
-        return reverse('blog_detail', args=[str(self.id)])
+        return reverse('blog_detail', kwargs={'journey_slug': self.journey.slug, 'pk': self.pk})
     
     @property
     def first_image(self):
