@@ -1,15 +1,26 @@
-# tracker/views.py
+# tracker/views.py (updated)
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404
 import json
 from .models import LocationUpdate
+from blog.models import Journey
 
 @csrf_exempt
 @require_POST
-def update_location(request):
+def update_location(request, journey_slug=None):
     """API endpoint to receive location updates from iPhone using Overland"""
     try:
+        # Get the journey, default to the active one if not specified
+        if journey_slug:
+            journey = get_object_or_404(Journey, slug=journey_slug)
+        else:
+            journey = Journey.objects.filter(is_active=True).first()
+            
+        if not journey:
+            return JsonResponse({'status': 'error', 'message': 'No active journey found'}, status=404)
+        
         data = json.loads(request.body)
         
         # Check if this is Overland format
@@ -22,9 +33,9 @@ def update_location(request):
                     lng = coords[0]
                     lat = coords[1]
                     
-                    # Save to database
+                    # Save to database with journey
                     if lat and lng:
-                        location_obj = LocationUpdate(latitude=lat, longitude=lng)
+                        location_obj = LocationUpdate(latitude=lat, longitude=lng, journey=journey)
                         location_obj.save()
             
             return JsonResponse({'status': 'success'})
@@ -34,7 +45,7 @@ def update_location(request):
             lng = data.get('longitude')
             
             if lat and lng:
-                location = LocationUpdate(latitude=lat, longitude=lng)
+                location = LocationUpdate(latitude=lat, longitude=lng, journey=journey)
                 location.save()
                 return JsonResponse({'status': 'success'})
         
@@ -42,10 +53,19 @@ def update_location(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-def get_latest_location(request):
+def get_latest_location(request, journey_slug=None):
     """API endpoint to retrieve the latest location for the map"""
     try:
-        latest = LocationUpdate.objects.first()  # Using the Meta ordering
+        # Get the journey, default to the active one if not specified
+        if journey_slug:
+            journey = get_object_or_404(Journey, slug=journey_slug)
+        else:
+            journey = Journey.objects.filter(is_active=True).first()
+            
+        if not journey:
+            return JsonResponse({'status': 'error', 'message': 'No active journey found'}, status=404)
+        
+        latest = LocationUpdate.objects.filter(journey=journey).first()  # Using the Meta ordering
         if latest:
             return JsonResponse({
                 'latitude': latest.latitude,

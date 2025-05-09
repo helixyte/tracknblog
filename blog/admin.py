@@ -1,10 +1,45 @@
-# blog/admin.py
+# blog/admin.py (updated)
 from django.contrib import admin
 from django.urls import path
 from django.http import JsonResponse
-from .models import BlogPost, BlogImage, Comment
+from .models import Journey, BlogPost, BlogImage, Comment
 from tracker.models import LocationUpdate
 from django.conf import settings
+
+# Register the Journey model
+@admin.register(Journey)
+class JourneyAdmin(admin.ModelAdmin):
+    list_display = ('title', 'slug', 'start_date', 'end_date', 'is_active', 'post_count')
+    search_fields = ('title', 'description')
+    list_filter = ('is_active', 'start_date')
+    prepopulated_fields = {'slug': ('title',)}
+    date_hierarchy = 'start_date'
+    
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'slug', 'description')
+        }),
+        ('Dates', {
+            'fields': ('start_date', 'end_date')
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'cover_image')
+        }),
+    )
+    
+    def post_count(self, obj):
+        """Return the number of blog posts for this journey"""
+        return obj.posts.count()
+    post_count.short_description = 'Posts'
+    
+    def save_model(self, request, obj, form, change):
+        """
+        When setting a journey as active, make sure to set all other journeys to inactive
+        """
+        if obj.is_active:
+            # Set all other journeys to inactive
+            Journey.objects.exclude(pk=obj.pk).update(is_active=False)
+        super().save_model(request, obj, form, change)
 
 class BlogImageInline(admin.TabularInline):
     model = BlogImage
@@ -12,13 +47,14 @@ class BlogImageInline(admin.TabularInline):
 
 @admin.register(BlogPost)
 class BlogPostAdmin(admin.ModelAdmin):
-    list_display = ('title', 'timestamp', 'has_location')
+    list_display = ('title', 'journey', 'timestamp', 'has_location')
     search_fields = ('title', 'description')
+    list_filter = ('journey', 'timestamp')
     date_hierarchy = 'timestamp'
     inlines = [BlogImageInline]
     fieldsets = (
         (None, {
-            'fields': ('title', 'description')
+            'fields': ('journey', 'title', 'description')
         }),
         ('Location', {
             'fields': ('latitude', 'longitude'),
@@ -47,7 +83,20 @@ class BlogPostAdmin(admin.ModelAdmin):
         Custom admin view to return the latest location from the tracker
         """
         try:
-            latest_location = LocationUpdate.objects.first()  # Gets the latest due to model ordering
+            # Get the journey ID from the request if available
+            journey_id = request.GET.get('journey_id')
+            
+            if journey_id:
+                # Get the latest location for the specific journey
+                latest_location = LocationUpdate.objects.filter(journey_id=journey_id).first()
+            else:
+                # Get the latest location from the active journey
+                active_journey = Journey.objects.filter(is_active=True).first()
+                if active_journey:
+                    latest_location = LocationUpdate.objects.filter(journey=active_journey).first()
+                else:
+                    latest_location = LocationUpdate.objects.first()  # Gets the latest due to model ordering
+            
             if latest_location:
                 return JsonResponse({
                     'success': True,
@@ -65,16 +114,16 @@ class BlogPostAdmin(admin.ModelAdmin):
                 'success': False,
                 'error': str(e)
             })
-    
+
 admin.register(BlogImage)
 class BlogImageAdmin(admin.ModelAdmin):
     list_display = ('blog_post', 'order')
-    list_filter = ('blog_post',)
+    list_filter = ('blog_post__journey', 'blog_post')
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'truncated_content', 'blog_post', 'ip_address', 'created_at', 'approved', 'is_reply')
-    list_filter = ('approved', 'created_at', 'blog_post')
+    list_display = ('name', 'truncated_content', 'blog_post', 'blog_post_journey', 'ip_address', 'created_at', 'approved', 'is_reply')
+    list_filter = ('approved', 'created_at', 'blog_post__journey')
     search_fields = ('name', 'content', 'ip_address')
     actions = ['approve_comments', 'disapprove_comments', 'mark_as_spam', 'block_ip_addresses']
     date_hierarchy = 'created_at'
@@ -82,9 +131,10 @@ class CommentAdmin(admin.ModelAdmin):
     list_per_page = 20
     ordering = ('-created_at',)
     
-    # Add a button to toggle the comment's approved status
-    actions_on_bottom = True
-    actions_on_top = True
+    def blog_post_journey(self, obj):
+        """Return the journey name for better filtering"""
+        return obj.blog_post.journey.title
+    blog_post_journey.short_description = 'Journey'
     
     def truncated_content(self, obj):
         """Return truncated content for display in admin list"""

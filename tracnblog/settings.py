@@ -83,8 +83,9 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.static',  # This is important for static files
-                # Add a custom context processor for base URL
+                # Add custom context processors
                 'tracnblog.context_processors.base_url_processor',
+                'tracnblog.context_processors.active_journey_processor',  # New processor
             ],
         },
     },
