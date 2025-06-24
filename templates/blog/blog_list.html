@@ -14,30 +14,34 @@
         
         <!-- Journey header -->
         <div class="mb-10 bg-white rounded-xl shadow-md overflow-hidden">
-            {% if journey.cover_image %}
-                <div class="h-64 overflow-hidden">
-                    <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="w-full h-full object-cover">
-                </div>
-            {% endif %}
-            
             <div class="p-6">
-                <div class="flex justify-between items-center mb-2">
-                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ journey.title }}</h1>
-                    {% if journey.is_active %}
-                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Active</span>
+                <div class="flex items-stretch gap-6">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start mb-2">
+                            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ journey.title }}</h1>
+                            {% if journey.is_active %}
+                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Active</span>
+                            {% endif %}
+                        </div>
+                        
+                        <p class="text-gray-500 mb-4">
+                            {% if journey.end_date %}
+                                {{ journey.start_date|date:"F j, Y" }} - {{ journey.end_date|date:"F j, Y" }}
+                            {% else %}
+                                Started {{ journey.start_date|date:"F j, Y" }}
+                            {% endif %}
+                        </p>
+                        
+                        <div class="prose max-w-none">
+                            <p>{{ journey.description }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if journey.cover_image %}
+                        <div class="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
+                            <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="w-full h-full object-cover object-top">
+                        </div>
                     {% endif %}
-                </div>
-                
-                <p class="text-gray-500 mb-4">
-                    {% if journey.end_date %}
-                        {{ journey.start_date|date:"F j, Y" }} - {{ journey.end_date|date:"F j, Y" }}
-                    {% else %}
-                        Started {{ journey.start_date|date:"F j, Y" }}
-                    {% endif %}
-                </p>
-                
-                <div class="prose max-w-none mb-4">
-                    <p>{{ journey.description }}</p>
                 </div>
             </div>
         </div>

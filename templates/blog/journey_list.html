@@ -15,11 +15,11 @@
                 {% for journey in journeys %}
                     <a href="{{ journey.get_absolute_url }}" class="journey-card group">
                         <div class="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 transform hover:-translate-y-2 hover:shadow-xl">
-                            <div class="h-48 overflow-hidden">
+                            <div class="relative w-full" style="aspect-ratio: 16/9; overflow: hidden;">
                                 {% if journey.cover_image %}
-                                    <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                    <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105">
                                 {% else %}
-                                    <div class="h-48 bg-blue-600 flex items-center justify-center text-white text-3xl font-bold">
+                                    <div class="absolute inset-0 bg-blue-600 flex items-center justify-center text-white text-3xl font-bold">
                                         {{ journey.title|slice:":1" }}
                                     </div>
                                 {% endif %}
