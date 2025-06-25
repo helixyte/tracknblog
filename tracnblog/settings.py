@@ -43,8 +43,49 @@ MEDIA_URL = '/media/'
 # CSRF settings for custom domain
 CSRF_TRUSTED_ORIGINS = [
     'https://cyclingeast.vista-grande.net',
-    'http://cyclingeast.vista-grande.net'  # Include this if you also accept HTTP
+    'http://cyclingeast.vista-grande.net',  # Include this if you also accept HTTP
+    # Add your production domain here if different
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'tracker.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'tracker.views': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}
 
 # Application definition
 

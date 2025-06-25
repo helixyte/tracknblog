@@ -15,7 +15,7 @@
         <!-- Journey header -->
         <div class="mb-10 bg-white rounded-xl shadow-md overflow-hidden">
             <div class="p-6">
-                <div class="flex items-stretch gap-6">
+                <div class="flex items-center gap-6">
                     <div class="flex-grow">
                         <div class="flex justify-between items-start mb-2">
                             <h1 class="text-3xl md:text-4xl font-bold text-gray-800">{{ journey.title }}</h1>
@@ -38,7 +38,7 @@
                     </div>
                     
                     {% if journey.cover_image %}
-                        <div class="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
+                        <div class="hidden md:block w-40 h-40 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
                             <img src="{{ BASE_URL }}{{ journey.cover_image.url }}" alt="{{ journey.title }}" class="w-full h-full object-cover object-top">
                         </div>
                     {% endif %}
