@@ -240,6 +240,40 @@ def get_latest_location(request, journey_slug=None):
         logger.error(f"Error getting latest location: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@csrf_exempt
+def get_all_locations(request, journey_slug=None):
+    """API endpoint to retrieve all location updates for the journey map"""
+    try:
+        # Get the journey, default to the active one if not specified
+        if journey_slug:
+            journey = get_object_or_404(Journey, slug=journey_slug)
+        else:
+            journey = Journey.objects.filter(is_active=True).first()
+            
+        if not journey:
+            return JsonResponse({'status': 'error', 'message': 'No active journey found'}, status=404)
+        
+        locations = LocationUpdate.objects.filter(journey=journey).order_by('timestamp')
+        location_data = []
+        
+        for location in locations:
+            location_data.append({
+                'latitude': location.latitude,
+                'longitude': location.longitude,
+                'timestamp': location.timestamp.isoformat(),
+            })
+        
+        return JsonResponse({
+            'status': 'success',
+            'locations': location_data,
+            'journey': journey.title,
+            'total_count': len(location_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all locations: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 # Test endpoint to verify the API is working
 @csrf_exempt
 def test_endpoint(request):

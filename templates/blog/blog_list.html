@@ -99,7 +99,7 @@
             console.log("Initializing map");
             
             // Initialize the map
-            const map = L.map('map').setView([39.8283, -98.5795], 4); // Default to center of US
+            const map = L.map('map').setView([39.8283, -98.5795], 4); // Default view will be overridden
             
             // Add the OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -112,6 +112,9 @@
             // Dictionary to store blog post markers
             const blogMarkers = {};
             let activeMarker = null;
+            
+            // Array to store all map points for bounds calculation
+            let allMapPoints = [];
             
             // Custom icon for blog post markers
             const blogIcon = L.icon({
@@ -166,10 +169,10 @@
                             // Add a tooltip with the timestamp
                             const timestamp = new Date(data.timestamp);
                             currentLocationMarker.bindTooltip(`Current Location: ${timestamp.toLocaleString()}`);
+                            
+                            // Add current location to bounds (only once)
+                            allMapPoints.push([lat, lng]);
                         }
-                        
-                        // Center the map on the new position if no other interaction has occurred
-                        map.setView([lat, lng], map.getZoom());
                     })
                     .catch(error => {
                         console.error('Error fetching location:', error);
@@ -204,6 +207,9 @@
                     // Store the marker reference
                     blogMarkers[post.id] = marker;
                     
+                    // Add point to bounds calculation
+                    allMapPoints.push([post.lat, post.lng]);
+                    
                     // Add click event to the marker
                     marker.on('click', function() {
                         // Reset previous active marker if any
@@ -235,11 +241,90 @@
                         opacity: 0.7,
                         dashArray: '5, 10'
                     }).addTo(map);
-                    
-                    // Fit the map to show all the points
-                    if (pathPoints.length > 0) {
-                        map.fitBounds(pathPoints);
-                    }
+                }
+            }
+            
+            // Function to add location update markers and path
+            function addLocationUpdates() {
+                console.log("Loading location updates");
+                
+                fetch('{{ BASE_URL }}{% url "journey_get_all_locations" journey_slug=journey.slug %}')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('No location data available');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(`Found ${data.locations.length} location updates`);
+                        
+                        if (data.locations.length > 0) {
+                            // Add location points to bounds calculation
+                            data.locations.forEach(location => {
+                                allMapPoints.push([location.latitude, location.longitude]);
+                            });
+                            
+                            // Create a path from all location updates
+                            const locationPath = data.locations.map(loc => [loc.latitude, loc.longitude]);
+                            
+                            if (locationPath.length > 1) {
+                                // Draw the location track
+                                const trackLine = L.polyline(locationPath, {
+                                    color: '#3388ff',
+                                    weight: 2,
+                                    opacity: 0.8,
+                                    dashArray: '3, 6'
+                                }).addTo(map);
+                            }
+                            
+                            // Add start and end markers
+                            if (data.locations.length > 0) {
+                                const startLocation = data.locations[0];
+                                const endLocation = data.locations[data.locations.length - 1];
+                                
+                                // Start marker (green)
+                                L.circleMarker([startLocation.latitude, startLocation.longitude], {
+                                    radius: 6,
+                                    fillColor: "#28a745",
+                                    color: "#fff",
+                                    weight: 2,
+                                    opacity: 1,
+                                    fillOpacity: 0.8
+                                }).addTo(map).bindTooltip("Journey Start");
+                                
+                                // End marker (red) - only if different from start
+                                if (data.locations.length > 1) {
+                                    L.circleMarker([endLocation.latitude, endLocation.longitude], {
+                                        radius: 6,
+                                        fillColor: "#dc3545",
+                                        color: "#fff",
+                                        weight: 2,
+                                        opacity: 1,
+                                        fillOpacity: 0.8
+                                    }).addTo(map).bindTooltip("Journey End");
+                                }
+                            }
+                        }
+                        
+                        // Fit map to show all points (blog posts + location updates)
+                        fitMapToBounds();
+                    })
+                    .catch(error => {
+                        console.error('Error loading location updates:', error);
+                        // Still fit map to blog posts if location data fails
+                        fitMapToBounds();
+                    });
+            }
+            
+            // Function to fit map bounds to show all journey data
+            function fitMapToBounds() {
+                if (allMapPoints.length > 0) {
+                    console.log(`Fitting map to ${allMapPoints.length} points`);
+                    map.fitBounds(allMapPoints, {
+                        padding: [20, 20] // Add some padding around the bounds
+                    });
+                } else {
+                    console.log("No points to fit bounds to");
                 }
             }
             
@@ -298,8 +383,9 @@
                 });
             });
             
-            // Initialize the map with blog markers and current location
+            // Initialize the map with blog markers, location updates, and current location
             addBlogPostMarkers();
+            addLocationUpdates(); // This will call fitMapToBounds() when done
             updateLocation();
             setInterval(updateLocation, 60000); // 60000 ms = 1 minute
             
