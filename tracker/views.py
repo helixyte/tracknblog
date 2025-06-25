@@ -44,14 +44,53 @@ def update_location(request, journey_slug=None):
                 data = json.loads(request.body)
                 logger.info(f"Received POST data: {data}")
                 
-                # OwnTracks format
-                if data.get('_type') == 'location':
+                # OwnTracks format - handle different message types
+                if '_type' in data:
+                    msg_type = data.get('_type')
+                    logger.info(f"OwnTracks message type: {msg_type}")
+                    
+                    if msg_type == 'location':
+                        # Location update - this is what we want
+                        lat = data.get('lat')
+                        lng = data.get('lon')
+                        timestamp = data.get('tst')  # Unix timestamp
+                        accuracy = data.get('acc')
+                        battery = data.get('batt')
+                        logger.info("Processing OwnTracks location update")
+                    
+                    elif msg_type == 'waypoints':
+                        # Waypoints message - acknowledge but don't process
+                        logger.info("Received OwnTracks waypoints message - acknowledging")
+                        return JsonResponse({'status': 'success', 'message': 'Waypoints acknowledged'})
+                    
+                    elif msg_type == 'transition':
+                        # Geofence transition - acknowledge but don't process
+                        logger.info("Received OwnTracks transition message - acknowledging")
+                        return JsonResponse({'status': 'success', 'message': 'Transition acknowledged'})
+                    
+                    elif msg_type == 'lwt':
+                        # Last Will and Testament message - acknowledge
+                        logger.info("Received OwnTracks LWT message - acknowledging")
+                        return JsonResponse({'status': 'success', 'message': 'LWT acknowledged'})
+                    
+                    elif msg_type == 'card':
+                        # Contact card - acknowledge
+                        logger.info("Received OwnTracks card message - acknowledging")
+                        return JsonResponse({'status': 'success', 'message': 'Card acknowledged'})
+                    
+                    else:
+                        # Unknown OwnTracks message type - acknowledge anyway
+                        logger.info(f"Received unknown OwnTracks message type: {msg_type} - acknowledging")
+                        return JsonResponse({'status': 'success', 'message': f'Message type {msg_type} acknowledged'})
+                
+                # Check if this is still OwnTracks format but with 'lat'/'lon' keys
+                elif 'lat' in data and 'lon' in data:
                     lat = data.get('lat')
                     lng = data.get('lon')
-                    timestamp = data.get('tst')  # Unix timestamp
+                    timestamp = data.get('tst')
                     accuracy = data.get('acc')
                     battery = data.get('batt')
-                    logger.info("Detected OwnTracks format")
+                    logger.info("Detected OwnTracks location format (without _type)")
                 
                 # Overland format (array of locations)
                 elif 'locations' in data and isinstance(data['locations'], list):
