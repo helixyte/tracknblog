@@ -78,6 +78,15 @@ def update_location(request, journey_slug=None):
                         logger.info("Received OwnTracks card message - acknowledging")
                         return JsonResponse({'status': 'success', 'message': 'Card acknowledged'})
                     
+                    elif msg_type == 'status':
+                        # Device status message - acknowledge and log useful info
+                        logger.info("Received OwnTracks status message - acknowledging")
+                        ios_info = data.get('iOS', {})
+                        auth_status = ios_info.get('locationManagerAuthorizationStatus', 'unknown')
+                        background_status = ios_info.get('backgroundRefreshStatus', 'unknown')
+                        logger.info(f"Location auth: {auth_status}, Background refresh: {background_status}")
+                        return JsonResponse({'status': 'success', 'message': 'Status acknowledged'})
+                    
                     else:
                         # Unknown OwnTracks message type - acknowledge anyway
                         logger.info(f"Received unknown OwnTracks message type: {msg_type} - acknowledging")
