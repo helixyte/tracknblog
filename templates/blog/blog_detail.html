@@ -58,7 +58,7 @@
                     <div class="slider h-full">
                         {% for image in blog_post.images.all %}
                             <div class="slide h-full">
-                                <img src="{{ BASE_URL }}{{ image.image.url }}" alt="Journey photo" class="w-full h-full object-cover">
+                                <img src="{{ BASE_URL }}{{ image.image.url }}" alt="Journey photo" class="w-full h-full object-contain">
                             </div>
                         {% endfor %}
                     </div>
