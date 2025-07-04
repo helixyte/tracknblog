@@ -35,7 +35,8 @@ class JourneyDetailView(ListView):
                 'id': post.id,
                 'title': post.title,
                 'latitude': post.latitude,
-                'longitude': post.longitude
+                'longitude': post.longitude,
+                'timestamp': post.timestamp
             })
         context['blog_posts_with_location'] = posts_with_location
         return context

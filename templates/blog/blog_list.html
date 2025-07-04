@@ -116,6 +116,19 @@
             // Array to store all map points for bounds calculation
             let allMapPoints = [];
             
+            // Blog posts data (moved to global scope)
+            const blogPostsData = [
+                {% for post in blog_posts_with_location %}
+                    {
+                        id: {{ post.id }},
+                        lat: {{ post.latitude }},
+                        lng: {{ post.longitude }},
+                        title: "{{ post.title|escapejs }}",
+                        timestamp: "{{ post.timestamp|date:'c' }}"
+                    }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ];
+            
             // Custom icon for blog post markers
             const blogIcon = L.icon({
                 iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-icon.png',
@@ -183,18 +196,6 @@
             function addBlogPostMarkers() {
                 console.log("Adding blog post markers");
                 
-                // Blog posts data
-                const blogPostsData = [
-                    {% for post in blog_posts_with_location %}
-                        {
-                            id: {{ post.id }},
-                            lat: {{ post.latitude }},
-                            lng: {{ post.longitude }},
-                            title: "{{ post.title|escapejs }}"
-                        }{% if not forloop.last %},{% endif %}
-                    {% endfor %}
-                ];
-                
                 console.log(`Found ${blogPostsData.length} blog posts with location`);
                 
                 // Add markers for each blog post
@@ -241,51 +242,79 @@
                     .then(data => {
                         console.log(`Found ${data.locations.length} location updates`);
                         
-                        if (data.locations.length > 0) {
-                            // Add location points to bounds calculation
-                            data.locations.forEach(location => {
-                                allMapPoints.push([location.latitude, location.longitude]);
+                        // Add location points to bounds calculation
+                        data.locations.forEach(location => {
+                            allMapPoints.push([location.latitude, location.longitude]);
+                        });
+                        
+                        // Combine blog posts and location updates for chronological path
+                        const allPoints = [];
+                        
+                        // Add location updates with timestamps
+                        data.locations.forEach(location => {
+                            allPoints.push({
+                                latitude: location.latitude,
+                                longitude: location.longitude,
+                                timestamp: new Date(location.timestamp),
+                                type: 'location'
                             });
+                        });
+                        
+                        // Add blog posts with timestamps
+                        blogPostsData.forEach(post => {
+                            allPoints.push({
+                                latitude: post.lat,
+                                longitude: post.lng,
+                                timestamp: new Date(post.timestamp),
+                                type: 'blog_post'
+                            });
+                        });
+                        
+                        console.log(`Total points for journey path: ${allPoints.length} (${data.locations.length} location updates + ${blogPostsData.length} blog posts)`);
+                        
+                        // Sort all points by timestamp for chronological order
+                        allPoints.sort((a, b) => a.timestamp - b.timestamp);
+                        
+                        // Create path from all points (blog posts + location updates)
+                        if (allPoints.length > 1) {
+                            const journeyPath = allPoints.map(point => [point.latitude, point.longitude]);
                             
-                            // Create a path from all location updates
-                            const locationPath = data.locations.map(loc => [loc.latitude, loc.longitude]);
+                            console.log(`Drawing journey path with ${journeyPath.length} points`);
                             
-                            if (locationPath.length > 1) {
-                                // Draw the location track
-                                const trackLine = L.polyline(locationPath, {
-                                    color: '#3388ff',
-                                    weight: 2,
-                                    opacity: 0.8,
-                                    dashArray: '3, 6'
-                                }).addTo(map);
-                            }
+                            // Draw the complete journey path
+                            const trackLine = L.polyline(journeyPath, {
+                                color: '#3388ff',
+                                weight: 2,
+                                opacity: 0.8,
+                                dashArray: '3, 6'
+                            }).addTo(map);
+                        }
+                        
+                        // Add start and end markers based on all points
+                        if (allPoints.length > 0) {
+                            const startPoint = allPoints[0];
+                            const endPoint = allPoints[allPoints.length - 1];
                             
-                            // Add start and end markers
-                            if (data.locations.length > 0) {
-                                const startLocation = data.locations[0];
-                                const endLocation = data.locations[data.locations.length - 1];
-                                
-                                // Start marker (green)
-                                L.circleMarker([startLocation.latitude, startLocation.longitude], {
+                            // Start marker (green)
+                            L.circleMarker([startPoint.latitude, startPoint.longitude], {
+                                radius: 6,
+                                fillColor: "#28a745",
+                                color: "#fff",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            }).addTo(map).bindTooltip("Journey Start");
+                            
+                            // End marker (red) - only if different from start
+                            if (allPoints.length > 1) {
+                                L.circleMarker([endPoint.latitude, endPoint.longitude], {
                                     radius: 6,
-                                    fillColor: "#28a745",
+                                    fillColor: "#dc3545",
                                     color: "#fff",
                                     weight: 2,
                                     opacity: 1,
                                     fillOpacity: 0.8
-                                }).addTo(map).bindTooltip("Journey Start");
-                                
-                                // End marker (red) - only if different from start
-                                if (data.locations.length > 1) {
-                                    L.circleMarker([endLocation.latitude, endLocation.longitude], {
-                                        radius: 6,
-                                        fillColor: "#dc3545",
-                                        color: "#fff",
-                                        weight: 2,
-                                        opacity: 1,
-                                        fillOpacity: 0.8
-                                    }).addTo(map).bindTooltip("Journey End");
-                                }
+                                }).addTo(map).bindTooltip("Journey End");
                             }
                         }
                         
