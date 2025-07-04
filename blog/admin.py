@@ -54,7 +54,7 @@ class BlogPostAdmin(admin.ModelAdmin):
     inlines = [BlogImageInline]
     fieldsets = (
         (None, {
-            'fields': ('journey', 'title', 'description')
+            'fields': ('journey', 'title', 'description', 'timestamp')
         }),
         ('Location', {
             'fields': ('latitude', 'longitude'),

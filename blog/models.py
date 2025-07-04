@@ -47,7 +47,7 @@ class BlogPost(models.Model):
     journey = models.ForeignKey(Journey, related_name='posts', on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField()
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     
