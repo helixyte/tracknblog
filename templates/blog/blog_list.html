@@ -242,28 +242,146 @@
                     .then(data => {
                         console.log(`Found ${data.locations.length} location updates`);
                         
-                        // Simple distance approximation for finding closest neighbors
-                        function calculateDistance(lat1, lon1, lat2, lon2) {
-                            // Simple approximation that accounts for longitude convergence
-                            const latDiff = Math.abs(lat1 - lat2);
-                            const lonDiff = Math.abs(lon1 - lon2) * Math.cos(lat1 * Math.PI / 180);
-                            return latDiff + lonDiff; // Approximate relative distance
+                        // IMPROVED ALGORITHM: Create sequential journey path with smart blog post insertion
+                        function createSmartJourneyPath(locationUpdates, blogPosts) {
+                            console.log("Creating smart journey path with sequential insertion...");
+                            
+                            // Step 1: Create chronological backbone from location updates (reliable timestamps)
+                            const backbone = locationUpdates
+                                .map(loc => ({
+                                    lat: loc.latitude,
+                                    lng: loc.longitude,
+                                    timestamp: new Date(loc.timestamp),
+                                    type: 'location'
+                                }))
+                                .sort((a, b) => a.timestamp - b.timestamp);
+                            
+                            console.log(`Created backbone with ${backbone.length} location points`);
+                            
+                            // Step 2: For each blog post, find the best insertion point in the backbone
+                            const insertions = [];
+                            
+                            blogPosts.forEach(post => {
+                                const postPoint = {
+                                    lat: post.lat,
+                                    lng: post.lng,
+                                    originalTimestamp: new Date(post.timestamp),
+                                    type: 'blog_post',
+                                    title: post.title || 'Blog Post'
+                                };
+                                
+                                console.log(`Processing blog post: ${postPoint.title} at (${postPoint.lat}, ${postPoint.lng})`);
+                                
+                                // Find the best insertion point
+                                const insertion = findBestInsertionPoint(postPoint, backbone);
+                                insertions.push({
+                                    ...postPoint,
+                                    insertionIndex: insertion.index,
+                                    adjustedTimestamp: insertion.timestamp,
+                                    distance: insertion.distance
+                                });
+                                
+                                console.log(`  -> Best insertion: index ${insertion.index}, distance ${insertion.distance.toFixed(4)}`);
+                            });
+                            
+                            // Step 3: Create final sequential path
+                            const finalPath = [...backbone];
+                            
+                            // Sort insertions by index (descending) to avoid index shifting
+                            insertions.sort((a, b) => b.insertionIndex - a.insertionIndex);
+                            
+                            insertions.forEach(insertion => {
+                                const insertPoint = {
+                                    lat: insertion.lat,
+                                    lng: insertion.lng,
+                                    timestamp: insertion.adjustedTimestamp,
+                                    type: 'blog_inserted',
+                                    title: insertion.title,
+                                    originalTimestamp: insertion.originalTimestamp
+                                };
+                                
+                                finalPath.splice(insertion.insertionIndex, 0, insertPoint);
+                                console.log(`  Inserted "${insertion.title}" at position ${insertion.insertionIndex}`);
+                            });
+                            
+                            // Sort final path by timestamp to ensure chronological order
+                            finalPath.sort((a, b) => a.timestamp - b.timestamp);
+                            
+                            console.log('Final sequential journey path:');
+                            finalPath.forEach((point, index) => {
+                                const marker = point.type.includes('blog') ? '📝' : '📍';
+                                console.log(`  ${index + 1}. ${marker} ${point.title || point.type} at ${point.timestamp.toISOString()}`);
+                            });
+                            
+                            return finalPath;
                         }
                         
-                        // Function to find the two closest points to a given point
-                        function findClosestNeighbors(targetPoint, allPoints) {
-                            const distances = allPoints
-                                .filter(point => point !== targetPoint) // Exclude the target point itself
-                                .map(point => ({
-                                    point: point,
-                                    distance: calculateDistance(
-                                        targetPoint.latitude, targetPoint.longitude,
-                                        point.latitude, point.longitude
-                                    )
-                                }))
-                                .sort((a, b) => a.distance - b.distance);
+                        // Find the best insertion point for a blog post in the location backbone
+                        function findBestInsertionPoint(post, backbone) {
+                            let bestIndex = 1; // Default to after first location
+                            let minDistance = Infinity;
                             
-                            return distances.slice(0, 2).map(d => d.point); // Return the two closest points
+                            // Check each segment between consecutive backbone points
+                            for (let i = 0; i < backbone.length - 1; i++) {
+                                const segStart = backbone[i];
+                                const segEnd = backbone[i + 1];
+                                
+                                // Calculate distance from post to this line segment
+                                const distance = distanceToLineSegment(post, segStart, segEnd);
+                                
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    bestIndex = i + 1; // Insert after point i
+                                }
+                            }
+                            
+                            // Interpolate timestamp for the insertion point
+                            const beforePoint = backbone[bestIndex - 1];
+                            const afterPoint = backbone[bestIndex] || backbone[bestIndex - 1];
+                            const interpolatedTime = interpolateTimestamp(beforePoint, afterPoint);
+                            
+                            return {
+                                index: bestIndex,
+                                timestamp: interpolatedTime,
+                                distance: minDistance
+                            };
+                        }
+                        
+                        // Calculate distance from point to line segment
+                        function distanceToLineSegment(point, segStart, segEnd) {
+                            const A = point.lat - segStart.lat;
+                            const B = point.lng - segStart.lng;
+                            const C = segEnd.lat - segStart.lat;
+                            const D = segEnd.lng - segStart.lng;
+                            
+                            const dot = A * C + B * D;
+                            const lenSq = C * C + D * D;
+                            
+                            if (lenSq === 0) {
+                                // Segment is a point
+                                return Math.sqrt(A * A + B * B);
+                            }
+                            
+                            const param = Math.max(0, Math.min(1, dot / lenSq));
+                            const xx = segStart.lat + param * C;
+                            const yy = segStart.lng + param * D;
+                            
+                            const dx = point.lat - xx;
+                            const dy = point.lng - yy;
+                            return Math.sqrt(dx * dx + dy * dy);
+                        }
+                        
+                        // Interpolate timestamp between two points
+                        function interpolateTimestamp(before, after) {
+                            if (!before) return after ? new Date(after.timestamp.getTime() - 60000) : new Date();
+                            if (!after || before === after) return new Date(before.timestamp.getTime() + 60000);
+                            
+                            // Simple midpoint interpolation
+                            const beforeTime = before.timestamp.getTime();
+                            const afterTime = after.timestamp.getTime();
+                            const midTime = beforeTime + (afterTime - beforeTime) * 0.5;
+                            
+                            return new Date(midTime);
                         }
                         
                         // Add location points to bounds calculation
@@ -271,82 +389,16 @@
                             allMapPoints.push([location.latitude, location.longitude]);
                         });
                         
-                        // Combine blog posts and location updates for spatial timestamp interpolation
-                        const allPoints = [];
+                        // Create the improved journey path
+                        console.log(`Creating journey path from ${data.locations.length} locations and ${blogPostsData.length} blog posts`);
+                        const journeyPoints = createSmartJourneyPath(data.locations, blogPostsData);
                         
-                        // Add location updates with timestamps (these maintain their original timestamps)
-                        data.locations.forEach(location => {
-                            allPoints.push({
-                                latitude: location.latitude,
-                                longitude: location.longitude,
-                                timestamp: new Date(location.timestamp),
-                                originalTimestamp: new Date(location.timestamp),
-                                type: 'location'
-                            });
-                        });
-                        
-                        // Add blog posts with original timestamps
-                        blogPostsData.forEach(post => {
-                            allPoints.push({
-                                latitude: post.lat,
-                                longitude: post.lng,
-                                timestamp: new Date(post.timestamp),
-                                originalTimestamp: new Date(post.timestamp),
-                                type: 'blog_post'
-                            });
-                        });
-                        
-                        console.log(`Total points for journey path: ${allPoints.length} (${data.locations.length} location updates + ${blogPostsData.length} blog posts)`);
-                        
-                        // Adjust timestamps for blog posts based on spatial proximity
-                        const blogPosts = allPoints.filter(point => point.type === 'blog_post');
-                        console.log(`Found ${blogPosts.length} blog posts to spatially adjust`);
-                        
-                        blogPosts.forEach(blogPost => {
-                            const neighbors = findClosestNeighbors(blogPost, allPoints);
+                        // Draw the journey path
+                        if (journeyPoints.length > 1) {
+                            const journeyPath = journeyPoints.map(point => [point.lat, point.lng]);
                             
-                            if (neighbors.length >= 2) {
-                                // Sort neighbors by timestamp to ensure proper interpolation
-                                neighbors.sort((a, b) => a.timestamp - b.timestamp);
-                                
-                                // Interpolate timestamp between the two closest neighbors
-                                const earlierTime = neighbors[0].timestamp.getTime();
-                                const laterTime = neighbors[1].timestamp.getTime();
-                                const interpolatedTime = earlierTime + (laterTime - earlierTime) / 2;
-                                
-                                blogPost.timestamp = new Date(interpolatedTime);
-                                
-                                console.log(`Adjusted blog post "${blogPost.type}" timestamp from ${blogPost.originalTimestamp.toISOString()} to ${blogPost.timestamp.toISOString()}`);
-                            } else if (neighbors.length === 1) {
-                                // Handle edge case: only one neighbor found
-                                const neighbor = neighbors[0];
-                                if (neighbor.timestamp < blogPost.timestamp) {
-                                    // Blog post is after the neighbor, place it slightly later
-                                    blogPost.timestamp = new Date(neighbor.timestamp.getTime() + 60000); // 1 minute later
-                                } else {
-                                    // Blog post is before the neighbor, place it slightly earlier
-                                    blogPost.timestamp = new Date(neighbor.timestamp.getTime() - 60000); // 1 minute earlier
-                                }
-                                console.log(`Adjusted blog post timestamp (edge case) to ${blogPost.timestamp.toISOString()}`);
-                            }
-                        });
-                        
-                        // Sort all points by adjusted timestamp for chronological order
-                        allPoints.sort((a, b) => a.timestamp - b.timestamp);
-                        
-                        // Log the final path order for debugging
-                        console.log('Final journey path order:');
-                        allPoints.forEach((point, index) => {
-                            console.log(`  ${index + 1}. ${point.type} at ${point.timestamp.toISOString()} (${point.latitude}, ${point.longitude})`);
-                        });
-                        
-                        // Create path from all points (blog posts + location updates)
-                        if (allPoints.length > 1) {
-                            const journeyPath = allPoints.map(point => [point.latitude, point.longitude]);
+                            console.log(`Drawing sequential journey path with ${journeyPath.length} points`);
                             
-                            console.log(`Drawing journey path with ${journeyPath.length} points`);
-                            
-                            // Draw the complete journey path
                             const trackLine = L.polyline(journeyPath, {
                                 color: '#3388ff',
                                 weight: 2,
@@ -355,13 +407,13 @@
                             }).addTo(map);
                         }
                         
-                        // Add start and end markers based on all points
-                        if (allPoints.length > 0) {
-                            const startPoint = allPoints[0];
-                            const endPoint = allPoints[allPoints.length - 1];
+                        // Add start and end markers based on journey points
+                        if (journeyPoints.length > 0) {
+                            const startPoint = journeyPoints[0];
+                            const endPoint = journeyPoints[journeyPoints.length - 1];
                             
                             // Start marker (green)
-                            L.circleMarker([startPoint.latitude, startPoint.longitude], {
+                            L.circleMarker([startPoint.lat, startPoint.lng], {
                                 radius: 6,
                                 fillColor: "#28a745",
                                 color: "#fff",
@@ -371,8 +423,8 @@
                             }).addTo(map).bindTooltip("Journey Start");
                             
                             // End marker (red) - only if different from start
-                            if (allPoints.length > 1) {
-                                L.circleMarker([endPoint.latitude, endPoint.longitude], {
+                            if (journeyPoints.length > 1) {
+                                L.circleMarker([endPoint.lat, endPoint.lng], {
                                     radius: 6,
                                     fillColor: "#dc3545",
                                     color: "#fff",
