@@ -242,38 +242,107 @@
                     .then(data => {
                         console.log(`Found ${data.locations.length} location updates`);
                         
+                        // Haversine distance calculation function
+                        function calculateDistance(lat1, lon1, lat2, lon2) {
+                            const R = 6371; // Radius of the Earth in kilometers
+                            const dLat = (lat2 - lat1) * Math.PI / 180;
+                            const dLon = (lon2 - lon1) * Math.PI / 180;
+                            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                            return R * c; // Distance in kilometers
+                        }
+                        
+                        // Function to find the two closest points to a given point
+                        function findClosestNeighbors(targetPoint, allPoints) {
+                            const distances = allPoints
+                                .filter(point => point !== targetPoint) // Exclude the target point itself
+                                .map(point => ({
+                                    point: point,
+                                    distance: calculateDistance(
+                                        targetPoint.latitude, targetPoint.longitude,
+                                        point.latitude, point.longitude
+                                    )
+                                }))
+                                .sort((a, b) => a.distance - b.distance);
+                            
+                            return distances.slice(0, 2).map(d => d.point); // Return the two closest points
+                        }
+                        
                         // Add location points to bounds calculation
                         data.locations.forEach(location => {
                             allMapPoints.push([location.latitude, location.longitude]);
                         });
                         
-                        // Combine blog posts and location updates for chronological path
+                        // Combine blog posts and location updates for spatial timestamp interpolation
                         const allPoints = [];
                         
-                        // Add location updates with timestamps
+                        // Add location updates with timestamps (these maintain their original timestamps)
                         data.locations.forEach(location => {
                             allPoints.push({
                                 latitude: location.latitude,
                                 longitude: location.longitude,
                                 timestamp: new Date(location.timestamp),
+                                originalTimestamp: new Date(location.timestamp),
                                 type: 'location'
                             });
                         });
                         
-                        // Add blog posts with timestamps
+                        // Add blog posts with original timestamps
                         blogPostsData.forEach(post => {
                             allPoints.push({
                                 latitude: post.lat,
                                 longitude: post.lng,
                                 timestamp: new Date(post.timestamp),
+                                originalTimestamp: new Date(post.timestamp),
                                 type: 'blog_post'
                             });
                         });
                         
                         console.log(`Total points for journey path: ${allPoints.length} (${data.locations.length} location updates + ${blogPostsData.length} blog posts)`);
                         
-                        // Sort all points by timestamp for chronological order
+                        // Adjust timestamps for blog posts based on spatial proximity
+                        const blogPosts = allPoints.filter(point => point.type === 'blog_post');
+                        console.log(`Found ${blogPosts.length} blog posts to spatially adjust`);
+                        
+                        blogPosts.forEach(blogPost => {
+                            const neighbors = findClosestNeighbors(blogPost, allPoints);
+                            
+                            if (neighbors.length >= 2) {
+                                // Sort neighbors by timestamp to ensure proper interpolation
+                                neighbors.sort((a, b) => a.timestamp - b.timestamp);
+                                
+                                // Interpolate timestamp between the two closest neighbors
+                                const earlierTime = neighbors[0].timestamp.getTime();
+                                const laterTime = neighbors[1].timestamp.getTime();
+                                const interpolatedTime = earlierTime + (laterTime - earlierTime) / 2;
+                                
+                                blogPost.timestamp = new Date(interpolatedTime);
+                                
+                                console.log(`Adjusted blog post "${blogPost.type}" timestamp from ${blogPost.originalTimestamp.toISOString()} to ${blogPost.timestamp.toISOString()}`);
+                            } else if (neighbors.length === 1) {
+                                // Handle edge case: only one neighbor found
+                                const neighbor = neighbors[0];
+                                if (neighbor.timestamp < blogPost.timestamp) {
+                                    // Blog post is after the neighbor, place it slightly later
+                                    blogPost.timestamp = new Date(neighbor.timestamp.getTime() + 60000); // 1 minute later
+                                } else {
+                                    // Blog post is before the neighbor, place it slightly earlier
+                                    blogPost.timestamp = new Date(neighbor.timestamp.getTime() - 60000); // 1 minute earlier
+                                }
+                                console.log(`Adjusted blog post timestamp (edge case) to ${blogPost.timestamp.toISOString()}`);
+                            }
+                        });
+                        
+                        // Sort all points by adjusted timestamp for chronological order
                         allPoints.sort((a, b) => a.timestamp - b.timestamp);
+                        
+                        // Log the final path order for debugging
+                        console.log('Final journey path order:');
+                        allPoints.forEach((point, index) => {
+                            console.log(`  ${index + 1}. ${point.type} at ${point.timestamp.toISOString()} (${point.latitude}, ${point.longitude})`);
+                        });
                         
                         // Create path from all points (blog posts + location updates)
                         if (allPoints.length > 1) {
