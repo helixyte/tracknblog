@@ -1,20 +1,21 @@
-// static/admin/js/admin_geolocation.js
+// static/blog/admin/js/admin_geolocation.js
 
-// Wait for the DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("Admin geolocation script loaded");
-    
-    // Function to add the location button
-    function addLocationButton() {
-        // Find the longitude field container
-        var longitudeField = document.getElementById('id_longitude');
-        if (!longitudeField) {
-            console.error("Longitude field not found");
-            return;
-        }
-        
-        // Create the button element
-        var button = document.createElement('button');
+// Utility helpers
+function getAdminLocationElements() {
+    var latitudeField = document.getElementById('id_latitude');
+    var longitudeField = document.getElementById('id_longitude');
+
+    if (!latitudeField || !longitudeField) {
+        console.error('Latitude or longitude field not found in the admin form.');
+        return null;
+    }
+
+    var button = document.getElementById('get-location-button');
+    var statusSpan = document.getElementById('location-status');
+
+    if (!button) {
+        // Create button when it does not already exist in the template
+        button = document.createElement('button');
         button.type = 'button';
         button.id = 'get-location-button';
         button.textContent = 'Get Current Location';
@@ -26,146 +27,251 @@ document.addEventListener('DOMContentLoaded', function() {
         button.style.border = 'none';
         button.style.borderRadius = '4px';
         button.style.cursor = 'pointer';
-        
-        // Create status span
-        var statusSpan = document.createElement('span');
-        statusSpan.id = 'location-status';
-        statusSpan.style.marginLeft = '10px';
-        
-        // Create container div
+
         var container = document.createElement('div');
         container.className = 'form-row';
         container.appendChild(button);
-        container.appendChild(statusSpan);
-        
-        // Add the button after the fieldset
-        var fieldsets = document.querySelectorAll('fieldset');
-        var locationFieldset = Array.from(fieldsets).find(function(fieldset) {
-            return fieldset.querySelector('h2') && 
-                  fieldset.querySelector('h2').textContent.includes('Location');
-        });
-        
-        if (locationFieldset) {
-            locationFieldset.appendChild(container);
+
+        var longitudeParent = longitudeField.closest('.form-row');
+        if (longitudeParent && longitudeParent.parentNode) {
+            longitudeParent.parentNode.insertBefore(container, longitudeParent.nextSibling);
         } else {
-            // Fallback: Add after longitude field's parent div
-            var longitudeParent = longitudeField.closest('.form-row');
-            if (longitudeParent && longitudeParent.parentNode) {
-                longitudeParent.parentNode.insertBefore(container, longitudeParent.nextSibling);
-            }
+            longitudeField.parentNode.appendChild(container);
         }
-        
-        // Add click event listener
-        button.addEventListener('click', getLatestLocation);
     }
-    
-    // Function to get the latest location
-    function getLatestLocation() {
-        var button = document.getElementById('get-location-button');
-        var statusSpan = document.getElementById('location-status');
-        var latitudeField = document.getElementById('id_latitude');
-        var longitudeField = document.getElementById('id_longitude');
-        
-        if (!latitudeField || !longitudeField) {
-            console.error('Could not find latitude or longitude fields');
-            if (statusSpan) {
-                statusSpan.textContent = 'Error: Could not find form fields';
-                statusSpan.style.color = 'red';
-            }
+
+    if (!statusSpan) {
+        statusSpan = document.createElement('span');
+        statusSpan.id = 'location-status';
+        statusSpan.style.marginLeft = '10px';
+        button.insertAdjacentElement('afterend', statusSpan);
+    }
+
+    return {
+        button: button,
+        statusSpan: statusSpan,
+        latitudeField: latitudeField,
+        longitudeField: longitudeField
+    };
+}
+
+function setStatus(statusSpan, message, color) {
+    if (!statusSpan) {
+        return;
+    }
+    statusSpan.textContent = message || '';
+    if (color) {
+        statusSpan.style.color = color;
+    }
+}
+
+function resetButtonState(button, statusSpan) {
+    if (!button) {
+        return;
+    }
+    button.disabled = false;
+    button.textContent = 'Get Current Location';
+    setStatus(statusSpan, '');
+}
+
+function applyCoordinates(latitudeField, longitudeField, latitude, longitude) {
+    var lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+    var lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+
+    if (!isFinite(lat) || !isFinite(lng)) {
+        throw new Error('Invalid coordinates returned.');
+    }
+
+    latitudeField.value = lat.toFixed(6);
+    longitudeField.value = lng.toFixed(6);
+}
+
+function getJourneyId() {
+    var journeyField = document.getElementById('id_journey');
+    return journeyField && journeyField.value ? journeyField.value : '';
+}
+
+function buildAdminApiUrl() {
+    var baseAdminPath = '/admin/';
+    if (window.location.pathname.includes('/admin/')) {
+        baseAdminPath = window.location.pathname.split('/admin/')[0] + '/admin/';
+    }
+    var url = baseAdminPath + 'blog/blogpost/get-latest-location/';
+    var journeyId = getJourneyId();
+    if (journeyId) {
+        url += '?journey_id=' + encodeURIComponent(journeyId);
+    }
+    return url;
+}
+
+function fetchLatestLocationFromServer() {
+    return new Promise(function(resolve, reject) {
+        var csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
+        var headers = {
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+        if (csrfElement && csrfElement.value) {
+            headers['X-CSRFToken'] = csrfElement.value;
+        }
+
+        fetch(buildAdminApiUrl(), {
+            method: 'GET',
+            headers: headers,
+            credentials: 'same-origin'
+        })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Server responded with status ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                var hasLatitude = typeof data.latitude !== 'undefined' && data.latitude !== null;
+                var hasLongitude = typeof data.longitude !== 'undefined' && data.longitude !== null;
+                if (data.success && hasLatitude && hasLongitude) {
+                    resolve(data);
+                } else {
+                    throw new Error(data.error || 'No location data available.');
+                }
+            })
+            .catch(function(error) {
+                reject(error);
+            });
+    });
+}
+
+function requestBrowserGeolocation() {
+    return new Promise(function(resolve, reject) {
+        if (!('geolocation' in navigator)) {
+            reject(new Error('Geolocation is not supported by this browser.'));
             return;
         }
-        
-        // Disable button and show loading state
-        button.disabled = true;
-        button.textContent = 'Getting location...';
-        
-        // Get CSRF token
-        var csrftoken = '';
-        var csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfElement) {
-            csrftoken = csrfElement.value;
+
+        var isLocalhost = /^localhost$|^127\.0\.0\.1$/.test(window.location.hostname);
+        if (!window.isSecureContext && !isLocalhost) {
+            reject(new Error('Browser location requires HTTPS.'));
+            return;
         }
-        
-        // Create the URL
-        var adminUrl = window.location.pathname.includes('/admin/') ? 
-            window.location.pathname.split('/admin/')[0] + '/admin/' : 
-            '/admin/';
-        var apiUrl = adminUrl + 'blog/blogpost/get-latest-location/';
-        
-        // Make the request
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', apiUrl, true);
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (csrftoken) {
-            xhr.setRequestHeader('X-CSRFToken', csrftoken);
-        }
-        xhr.responseType = 'json';
-        
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                var data = xhr.response;
-                console.log("Location data received:", data);
-                
-                if (data.success) {
-                    // Update form fields
-                    latitudeField.value = data.latitude;
-                    longitudeField.value = data.longitude;
-                    
-                    // Show success message
-                    statusSpan.textContent = 'Location updated successfully!';
-                    statusSpan.style.color = 'green';
-                    button.textContent = 'Location updated!';
-                    
-                    // Reset button after delay
-                    setTimeout(function() {
-                        button.disabled = false;
-                        button.textContent = 'Get Current Location';
-                        statusSpan.textContent = '';
-                    }, 2000);
-                } else {
-                    console.error('Error getting location:', data.error);
-                    statusSpan.textContent = 'Error: ' + data.error;
-                    statusSpan.style.color = 'red';
-                    button.textContent = 'Error';
-                    
-                    // Reset button after delay
-                    setTimeout(function() {
-                        button.disabled = false;
-                        button.textContent = 'Get Current Location';
-                    }, 2000);
+
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                resolve(position);
+            },
+            function(error) {
+                var message = error.message || 'Unable to retrieve location.';
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        message = 'Permission to access location was denied.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message = 'Location information is unavailable.';
+                        break;
+                    case error.TIMEOUT:
+                        message = 'Timed out while retrieving location.';
+                        break;
+                    default:
+                        if (message.toLowerCase().includes('secure origin')) {
+                            message = 'Browser blocked location because the connection is not secure.';
+                        }
+                        break;
                 }
-            } else {
-                console.error('XHR error:', xhr.statusText);
-                statusSpan.textContent = 'Error connecting to server';
-                statusSpan.style.color = 'red';
-                button.textContent = 'Error';
-                
-                // Reset button after delay
-                setTimeout(function() {
-                    button.disabled = false;
-                    button.textContent = 'Get Current Location';
-                    statusSpan.textContent = '';
-                }, 2000);
+                reject(new Error(message));
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0
             }
-        };
-        
-        xhr.onerror = function() {
-            console.error('Network error');
-            statusSpan.textContent = 'Network error';
-            statusSpan.style.color = 'red';
-            button.textContent = 'Error';
-            
-            // Reset button after delay
-            setTimeout(function() {
-                button.disabled = false;
-                button.textContent = 'Get Current Location';
-                statusSpan.textContent = '';
-            }, 2000);
-        };
-        
-        xhr.send();
+        );
+    });
+}
+
+async function handleLocationRequest(elements) {
+    var button = elements.button;
+    var statusSpan = elements.statusSpan;
+    var latitudeField = elements.latitudeField;
+    var longitudeField = elements.longitudeField;
+
+    button.disabled = true;
+    button.textContent = 'Getting location...';
+    setStatus(statusSpan, 'Requesting device location…', '#2563eb');
+
+    try {
+        var position = await requestBrowserGeolocation();
+        var coords = position.coords;
+        applyCoordinates(latitudeField, longitudeField, coords.latitude, coords.longitude);
+
+        var accuracyMessage = typeof coords.accuracy === 'number'
+            ? ' (±' + Math.round(coords.accuracy) + 'm accuracy)'
+            : '';
+        setStatus(statusSpan, 'Location updated from this device' + accuracyMessage + '.', 'green');
+        button.textContent = 'Location updated!';
+        setTimeout(function() {
+            resetButtonState(button, statusSpan);
+        }, 2500);
+        return;
+    } catch (browserError) {
+        console.warn('Browser geolocation failed:', browserError);
+        setStatus(statusSpan, browserError.message + ' Trying latest tracker update…', '#d97706');
     }
-    
-    // Initialize by adding the button
-    addLocationButton();
-});
+
+    try {
+        var data = await fetchLatestLocationFromServer();
+        applyCoordinates(latitudeField, longitudeField, data.latitude, data.longitude);
+
+        var timestampMessage = '';
+        if (data.timestamp) {
+            try {
+                var timestamp = new Date(data.timestamp);
+                if (!isNaN(timestamp.getTime())) {
+                    timestampMessage = ' from ' + timestamp.toLocaleString();
+                }
+            } catch (err) {
+                // Ignore parsing errors and leave timestampMessage empty
+            }
+        }
+
+        setStatus(statusSpan, 'Using latest tracker update' + timestampMessage + '.', 'green');
+        button.textContent = 'Location updated!';
+        setTimeout(function() {
+            resetButtonState(button, statusSpan);
+        }, 2500);
+    } catch (serverError) {
+        console.error('Failed to fetch latest tracker location:', serverError);
+        setStatus(statusSpan, serverError.message || 'Unable to fetch location.', 'red');
+        button.textContent = 'Error';
+        setTimeout(function() {
+            resetButtonState(button, statusSpan);
+        }, 3000);
+    }
+}
+
+function initializeLocationButton() {
+    var elements = getAdminLocationElements();
+    if (!elements) {
+        return;
+    }
+
+    // Remove existing listeners by cloning if necessary to avoid duplicates
+    var originalButton = elements.button;
+    var clonedButton = originalButton.cloneNode(true);
+    if (originalButton.parentNode) {
+        originalButton.parentNode.replaceChild(clonedButton, originalButton);
+        elements.button = clonedButton;
+        if (elements.statusSpan) {
+            elements.button.insertAdjacentElement('afterend', elements.statusSpan);
+        }
+    }
+
+    elements.button.addEventListener('click', function(event) {
+        event.preventDefault();
+        handleLocationRequest(elements);
+    });
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeLocationButton);
+} else {
+    initializeLocationButton();
+}

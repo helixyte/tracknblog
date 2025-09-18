@@ -12,54 +12,6 @@
     <button type="button" id="get-location-button" class="button" style="margin: 10px 0; padding: 8px 15px; font-size: 14px; background-color: #0078d7; color: white; border: none; border-radius: 4px; cursor: pointer;">
         Get Current Location
     </button>
+    <span id="location-status" class="help" style="margin-left: 10px;"></span>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const locationButton = document.getElementById('get-location-button');
-    const latitudeField = document.getElementById('id_latitude');
-    const longitudeField = document.getElementById('id_longitude');
-    
-    if (locationButton && latitudeField && longitudeField) {
-        locationButton.addEventListener('click', function() {
-            locationButton.disabled = true;
-            locationButton.innerText = 'Getting location...';
-            
-            fetch('{% url "admin:blog_blogpost_get_latest_location" %}', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    latitudeField.value = data.latitude;
-                    longitudeField.value = data.longitude;
-                    locationButton.innerText = 'Location updated!';
-                    setTimeout(() => {
-                        locationButton.disabled = false;
-                        locationButton.innerText = 'Get Current Location';
-                    }, 2000);
-                } else {
-                    locationButton.innerText = 'Error: ' + data.error;
-                    setTimeout(() => {
-                        locationButton.disabled = false;
-                        locationButton.innerText = 'Get Current Location';
-                    }, 2000);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                locationButton.innerText = 'Error getting location';
-                setTimeout(() => {
-                    locationButton.disabled = false;
-                    locationButton.innerText = 'Get Current Location';
-                }, 2000);
-            });
-        });
-    }
-});
-</script>
 {% endblock %}
