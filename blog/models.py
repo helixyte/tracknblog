@@ -1,7 +1,52 @@
 # blog/models.py (updated with Journey model)
+import os
+from io import BytesIO
+
+from django.core.files.base import ContentFile
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
+
+from PIL import Image
+
+try:
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+    HEIF_SUPPORTED = True
+except ImportError:  # pragma: no cover - pillow-heif should be installed via requirements
+    HEIF_SUPPORTED = False
+
+
+def _convert_heif_image(field_file):
+    """Convert HEIF/HEIC images to JPEG so Pillow can process them reliably."""
+
+    if not field_file or not getattr(field_file, "name", None):
+        return
+
+    ext = os.path.splitext(field_file.name)[1].lower()
+    if ext not in {".heic", ".heif"}:
+        return
+
+    if not HEIF_SUPPORTED:
+        return
+
+    file_obj = getattr(field_file, "file", None)
+    if file_obj is None:
+        return
+
+    file_obj.seek(0)
+    image = Image.open(file_obj)
+    converted = image.convert("RGB")
+
+    buffer = BytesIO()
+    converted.save(buffer, format="JPEG")
+    image.close()
+    converted.close()
+
+    buffer.seek(0)
+    new_name = os.path.splitext(field_file.name)[0] + ".jpg"
+    field_file.save(new_name, ContentFile(buffer.getvalue()), save=False)
 
 class Journey(models.Model):
     """
@@ -31,6 +76,8 @@ class Journey(models.Model):
         # Auto-generate slug if it doesn't exist
         if not self.slug:
             self.slug = slugify(self.title)
+        if self.cover_image:
+            _convert_heif_image(self.cover_image)
         super().save(*args, **kwargs)
     
     @property
@@ -75,12 +122,17 @@ class BlogImage(models.Model):
     blog_post = models.ForeignKey(BlogPost, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='blog_images/')
     order = models.IntegerField(default=0)
-    
+
     class Meta:
         ordering = ['order']
-    
+
     def __str__(self):
         return f"Image for {self.blog_post.title}"
+
+    def save(self, *args, **kwargs):
+        if self.image:
+            _convert_heif_image(self.image)
+        super().save(*args, **kwargs)
 
 class Comment(models.Model):
     blog_post = models.ForeignKey(BlogPost, related_name='comments', on_delete=models.CASCADE)
