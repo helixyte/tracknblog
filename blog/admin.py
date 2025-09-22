@@ -1,10 +1,14 @@
 # blog/admin.py (updated)
-from django.contrib import admin
-from django.urls import path
-from django.http import JsonResponse
-from .models import Journey, BlogPost, BlogImage, Comment
-from tracker.models import LocationUpdate
+from django import forms
 from django.conf import settings
+from django.contrib import admin
+from django.http import JsonResponse
+from django.urls import path
+
+from tracker.coordinates import format_coordinate_pair, parse_coordinate_pair
+from tracker.models import LocationUpdate
+
+from .models import BlogImage, BlogPost, Comment, Journey
 
 # Register the Journey model
 @admin.register(Journey)
@@ -41,12 +45,65 @@ class JourneyAdmin(admin.ModelAdmin):
             Journey.objects.exclude(pk=obj.pk).update(is_active=False)
         super().save_model(request, obj, form, change)
 
+class BlogPostAdminForm(forms.ModelForm):
+    coordinate_input = forms.CharField(
+        label="Coordinates",
+        required=False,
+        help_text="Paste as (latitude, longitude) from Google Maps.",
+    )
+
+    class Meta:
+        model = BlogPost
+        fields = ("journey", "title", "description", "timestamp")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            initial_value = format_coordinate_pair(
+                self.instance.latitude, self.instance.longitude
+            )
+            if initial_value:
+                self.fields["coordinate_input"].initial = initial_value
+
+    def clean_coordinate_input(self):
+        value = self.cleaned_data.get("coordinate_input")
+        if value:
+            value = value.strip()
+
+        if not value:
+            self.cleaned_data["latitude"] = None
+            self.cleaned_data["longitude"] = None
+            return ""
+
+        parsed = parse_coordinate_pair(value)
+        if not parsed:
+            raise forms.ValidationError(
+                "Enter coordinates in the format (latitude, longitude)."
+            )
+
+        self.cleaned_data["latitude"], self.cleaned_data["longitude"] = parsed
+        return value
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        latitude = self.cleaned_data.get("latitude")
+        longitude = self.cleaned_data.get("longitude")
+
+        instance.latitude = latitude
+        instance.longitude = longitude
+
+        if commit:
+            instance.save()
+        return instance
+
+
 class BlogImageInline(admin.TabularInline):
     model = BlogImage
     extra = 3  # Show 3 empty forms by default
 
 @admin.register(BlogPost)
 class BlogPostAdmin(admin.ModelAdmin):
+    form = BlogPostAdminForm
     list_display = ('title', 'journey', 'timestamp', 'has_location')
     search_fields = ('title', 'description')
     list_filter = ('journey', 'timestamp')
@@ -57,8 +114,8 @@ class BlogPostAdmin(admin.ModelAdmin):
             'fields': ('journey', 'title', 'description', 'timestamp')
         }),
         ('Location', {
-            'fields': ('latitude', 'longitude'),
-            'description': 'Click "Get Current Location" button to auto-fill with your latest location data.'
+            'fields': ('coordinate_input',),
+            'description': 'Paste coordinates as (latitude, longitude) or use "Get Current Location" to populate automatically.'
         })
     )
     
