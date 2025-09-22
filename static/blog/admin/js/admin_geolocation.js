@@ -6,10 +6,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to add the location button
     function addLocationButton() {
-        // Find the longitude field container
-        var longitudeField = document.getElementById('id_longitude');
-        if (!longitudeField) {
-            console.error("Longitude field not found");
+        // Find the combined coordinate field container
+        var coordinateField = document.getElementById('id_coordinate_input');
+        if (!coordinateField) {
+            console.error("Coordinate field not found");
             return;
         }
         
@@ -41,17 +41,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add the button after the fieldset
         var fieldsets = document.querySelectorAll('fieldset');
         var locationFieldset = Array.from(fieldsets).find(function(fieldset) {
-            return fieldset.querySelector('h2') && 
+            return fieldset.querySelector('h2') &&
                   fieldset.querySelector('h2').textContent.includes('Location');
         });
-        
+
         if (locationFieldset) {
             locationFieldset.appendChild(container);
         } else {
-            // Fallback: Add after longitude field's parent div
-            var longitudeParent = longitudeField.closest('.form-row');
-            if (longitudeParent && longitudeParent.parentNode) {
-                longitudeParent.parentNode.insertBefore(container, longitudeParent.nextSibling);
+            // Fallback: Add after the coordinate field's parent div
+            var coordinateParent = coordinateField.closest('.form-row');
+            if (coordinateParent && coordinateParent.parentNode) {
+                coordinateParent.parentNode.insertBefore(container, coordinateParent.nextSibling);
             }
         }
         
@@ -63,13 +63,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function getLatestLocation() {
         var button = document.getElementById('get-location-button');
         var statusSpan = document.getElementById('location-status');
-        var latitudeField = document.getElementById('id_latitude');
-        var longitudeField = document.getElementById('id_longitude');
-        
-        if (!latitudeField || !longitudeField) {
-            console.error('Could not find latitude or longitude fields');
+        var coordinateField = document.getElementById('id_coordinate_input');
+
+        if (!coordinateField) {
+            console.error('Could not find coordinate field');
             if (statusSpan) {
-                statusSpan.textContent = 'Error: Could not find form fields';
+                statusSpan.textContent = 'Error: Could not find coordinate field';
                 statusSpan.style.color = 'red';
             }
             return;
@@ -108,9 +107,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (data.success) {
                     // Update form fields
-                    latitudeField.value = data.latitude;
-                    longitudeField.value = data.longitude;
-                    
+                    var formatted = '(' + data.latitude + ', ' + data.longitude + ')';
+                    coordinateField.value = formatted;
+                    coordinateField.dispatchEvent(new Event('input', { bubbles: true }));
+                    coordinateField.dispatchEvent(new Event('change', { bubbles: true }));
+
                     // Show success message
                     statusSpan.textContent = 'Location updated successfully!';
                     statusSpan.style.color = 'green';

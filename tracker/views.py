@@ -8,8 +8,66 @@ import json
 import logging
 from .models import LocationUpdate
 from blog.models import Journey
+from .coordinates import parse_coordinate_pair
 
 logger = logging.getLogger(__name__)
+
+def _to_float_or_none(value):
+    """Convert a value to float when possible, otherwise return None."""
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return None
+
+    return None
+
+
+def _extract_coordinates(lat, lng, possible_sources=None):
+    """Ensure latitude/longitude are floats, checking alternate sources if needed."""
+    lat_value = _to_float_or_none(lat)
+    lng_value = _to_float_or_none(lng)
+
+    if lat_value is not None and lng_value is not None:
+        return lat_value, lng_value
+
+    combined_candidates = []
+
+    if isinstance(lat, str):
+        combined_candidates.append(lat)
+    if isinstance(lng, str):
+        combined_candidates.append(lng)
+
+    if possible_sources:
+        for key in ("location", "coordinates", "coord", "point"):
+            if key in possible_sources:
+                combined_value = possible_sources.get(key)
+                if not combined_value:
+                    continue
+                if isinstance(combined_value, (list, tuple)) and len(combined_value) == 2:
+                    try:
+                        return float(combined_value[0]), float(combined_value[1])
+                    except (TypeError, ValueError):
+                        continue
+                if isinstance(combined_value, str):
+                    combined_candidates.append(combined_value)
+
+    for candidate in combined_candidates:
+        parsed = parse_coordinate_pair(candidate)
+        if parsed:
+            return parsed
+
+    return lat_value, lng_value
+
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
@@ -38,10 +96,13 @@ def update_location(request, journey_slug=None):
         accuracy = None
         battery = None
         
+        request_payload = None
+
         if request.method == 'POST':
             # Handle POST requests (OwnTracks, Overland, custom)
             try:
-                data = json.loads(request.body)
+                request_payload = json.loads(request.body)
+                data = request_payload
                 logger.info(f"Received POST data: {data}")
                 
                 # OwnTracks format - handle different message types
@@ -135,15 +196,15 @@ def update_location(request, journey_slug=None):
                     lat = data.get('latitude')
                     lng = data.get('longitude')
                     logger.info("Detected custom format")
-                    
+
             except json.JSONDecodeError:
                 logger.error("Invalid JSON in POST request")
                 return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
-        
+
         elif request.method == 'GET':
             # Handle GET requests (Traccar Client)
             logger.info(f"Received GET parameters: {dict(request.GET)}")
-            
+
             # Traccar Client format
             lat = request.GET.get('lat')
             lng = request.GET.get('lon')
@@ -157,20 +218,18 @@ def update_location(request, journey_slug=None):
             accuracy = request.GET.get('accuracy')
             battery = request.GET.get('batt')
             
-            # Convert string coordinates to float
-            if lat:
-                lat = float(lat)
-            if lng:
-                lng = float(lng)
-                
             logger.info("Detected Traccar Client format")
-        
+
+        # Normalize coordinates (support combined latitude/longitude strings)
+        sources = request_payload if isinstance(request_payload, dict) else request.GET
+        lat, lng = _extract_coordinates(lat, lng, possible_sources=sources)
+
         # Save the location if we have valid coordinates
-        if lat and lng:
+        if lat is not None and lng is not None:
             try:
                 location = LocationUpdate(
-                    latitude=lat, 
-                    longitude=lng, 
+                    latitude=lat,
+                    longitude=lng,
                     journey=journey
                 )
                 
