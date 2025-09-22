@@ -5,3 +5,8 @@ static/blog/.DS_Store
 static/.DS_Store
 .DS_Store
 /staticfiles
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
