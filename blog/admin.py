@@ -1,4 +1,7 @@
 # blog/admin.py (updated)
+import re
+
+from django import forms
 from django.contrib import admin
 from django.urls import path
 from django.http import JsonResponse
@@ -45,8 +48,80 @@ class BlogImageInline(admin.TabularInline):
     model = BlogImage
     extra = 3  # Show 3 empty forms by default
 
+
+COORDINATE_PATTERN = re.compile(
+    r"^\s*\(?\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*\)?\s*$"
+)
+
+
+class BlogPostAdminForm(forms.ModelForm):
+    coordinate_input = forms.CharField(
+        label="Coordinates",
+        required=False,
+        help_text="Enter coordinates in the format (latitude, longitude).",
+    )
+
+    class Meta:
+        model = BlogPost
+        fields = ("journey", "title", "description", "timestamp", "coordinate_input")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, "instance", None)
+        if instance and instance.pk and instance.latitude is not None and instance.longitude is not None:
+            self.fields["coordinate_input"].initial = (
+                f"({instance.latitude}, {instance.longitude})"
+            )
+
+    @staticmethod
+    def _parse_coordinate_pair(value):
+        if not isinstance(value, str):
+            return None
+
+        match = COORDINATE_PATTERN.match(value)
+        if not match:
+            return None
+
+        try:
+            return float(match.group(1)), float(match.group(2))
+        except (TypeError, ValueError):
+            return None
+
+    def clean_coordinate_input(self):
+        value = self.cleaned_data.get("coordinate_input")
+        if value is None:
+            self.cleaned_data["latitude"] = None
+            self.cleaned_data["longitude"] = None
+            return value
+
+        normalized = value.strip()
+        if not normalized:
+            self.cleaned_data["latitude"] = None
+            self.cleaned_data["longitude"] = None
+            return ""
+
+        parsed = self._parse_coordinate_pair(normalized)
+        if not parsed:
+            raise forms.ValidationError(
+                "Enter coordinates in the format (latitude, longitude)."
+            )
+
+        self.cleaned_data["latitude"], self.cleaned_data["longitude"] = parsed
+        return f"({parsed[0]}, {parsed[1]})"
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.latitude = self.cleaned_data.get("latitude")
+        instance.longitude = self.cleaned_data.get("longitude")
+
+        if commit:
+            instance.save()
+        return instance
+
+
 @admin.register(BlogPost)
 class BlogPostAdmin(admin.ModelAdmin):
+    form = BlogPostAdminForm
     list_display = ('title', 'journey', 'timestamp', 'has_location')
     search_fields = ('title', 'description')
     list_filter = ('journey', 'timestamp')
@@ -57,8 +132,8 @@ class BlogPostAdmin(admin.ModelAdmin):
             'fields': ('journey', 'title', 'description', 'timestamp')
         }),
         ('Location', {
-            'fields': ('latitude', 'longitude'),
-            'description': 'Click "Get Current Location" button to auto-fill with your latest location data.'
+            'fields': ('coordinate_input',),
+            'description': 'Click "Get Current Location" to auto-fill with your latest location in the format (lat, lng).'
         })
     )
     

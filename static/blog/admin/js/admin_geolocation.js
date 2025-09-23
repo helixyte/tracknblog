@@ -2,11 +2,10 @@
 
 // Utility helpers
 function getAdminLocationElements() {
-    var latitudeField = document.getElementById('id_latitude');
-    var longitudeField = document.getElementById('id_longitude');
+    var coordinateField = document.getElementById('id_coordinate_input');
 
-    if (!latitudeField || !longitudeField) {
-        console.error('Latitude or longitude field not found in the admin form.');
+    if (!coordinateField) {
+        console.error('Coordinate field not found in the admin form.');
         return null;
     }
 
@@ -32,11 +31,11 @@ function getAdminLocationElements() {
         container.className = 'form-row';
         container.appendChild(button);
 
-        var longitudeParent = longitudeField.closest('.form-row');
-        if (longitudeParent && longitudeParent.parentNode) {
-            longitudeParent.parentNode.insertBefore(container, longitudeParent.nextSibling);
+        var coordinateParent = coordinateField.closest('.form-row');
+        if (coordinateParent && coordinateParent.parentNode) {
+            coordinateParent.parentNode.insertBefore(container, coordinateParent.nextSibling);
         } else {
-            longitudeField.parentNode.appendChild(container);
+            coordinateField.parentNode.appendChild(container);
         }
     }
 
@@ -50,8 +49,7 @@ function getAdminLocationElements() {
     return {
         button: button,
         statusSpan: statusSpan,
-        latitudeField: latitudeField,
-        longitudeField: longitudeField
+        coordinateField: coordinateField
     };
 }
 
@@ -74,7 +72,7 @@ function resetButtonState(button, statusSpan) {
     setStatus(statusSpan, '');
 }
 
-function applyCoordinates(latitudeField, longitudeField, latitude, longitude) {
+function applyCoordinates(coordinateField, latitude, longitude) {
     var lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
     var lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
 
@@ -82,8 +80,7 @@ function applyCoordinates(latitudeField, longitudeField, latitude, longitude) {
         throw new Error('Invalid coordinates returned.');
     }
 
-    latitudeField.value = lat.toFixed(6);
-    longitudeField.value = lng.toFixed(6);
+    coordinateField.value = '(' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ')';
 }
 
 function getJourneyId() {
@@ -189,8 +186,7 @@ function requestBrowserGeolocation() {
 async function handleLocationRequest(elements) {
     var button = elements.button;
     var statusSpan = elements.statusSpan;
-    var latitudeField = elements.latitudeField;
-    var longitudeField = elements.longitudeField;
+    var coordinateField = elements.coordinateField;
 
     button.disabled = true;
     button.textContent = 'Getting location...';
@@ -199,7 +195,7 @@ async function handleLocationRequest(elements) {
     try {
         var position = await requestBrowserGeolocation();
         var coords = position.coords;
-        applyCoordinates(latitudeField, longitudeField, coords.latitude, coords.longitude);
+        applyCoordinates(coordinateField, coords.latitude, coords.longitude);
 
         var accuracyMessage = typeof coords.accuracy === 'number'
             ? ' (±' + Math.round(coords.accuracy) + 'm accuracy)'
@@ -217,7 +213,7 @@ async function handleLocationRequest(elements) {
 
     try {
         var data = await fetchLatestLocationFromServer();
-        applyCoordinates(latitudeField, longitudeField, data.latitude, data.longitude);
+        applyCoordinates(coordinateField, data.latitude, data.longitude);
 
         var timestampMessage = '';
         if (data.timestamp) {
